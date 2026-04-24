@@ -24,6 +24,30 @@
         "/^cd \"c:\\\\Users\\\\yusse\\\\OneDrive\\\\Documents\\\\GitHub\\\\smart-calc\\\\smart calc 2\" ; python -m py_compile backend/\\*\\.py ; echo \"✓ All Python backend files are valid\"$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^python -m py_compile app\\.py ; echo \"✓ app\\.py syntax OK\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python quick_eval\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python debug_eval\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python debug_eval2\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python debug_eval3\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python quick_var_test\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
