@@ -99,7 +99,8 @@ pip install -r backend/requirements.txt
 If you're on Windows, use the included PowerShell helper:
 
 ```powershell
-.un_backend.ps1
+.
+un_backend.ps1
 ```
 
 ---
@@ -111,6 +112,7 @@ If you're on Windows, use the included PowerShell helper:
 ```bash
 npm run dev
 ```
+if npm run dev doesn't work try press F5 or debugging button
 
 This will:
 - Start the Vite dev server
@@ -130,7 +132,8 @@ python -m backend.run_demo
 
 #### Method 2: PowerShell Helper (Windows)
 ```powershell
-.un_backend.ps1
+.
+un_backend.ps1
 ```
 
 #### Method 3: NPM Helper
