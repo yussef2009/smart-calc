@@ -1,454 +1,737 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 import math
+import cmath
 import re
 import statistics
+import fractions
+import decimal
+from decimal import Decimal
+import numpy as np
+import matplotlib.pyplot as plt
 
+decimal.getcontext().prec = 15
+
+# 47 Scientific Constants (Casio fx-991EX CODATA values)
+CASIO_CONSTANTS = {
+    '1: mp': ('1.672621923e-27', 'Proton mass'),
+    '2: mn': ('1.674927498e-27', 'Neutron mass'),
+    '3: me': ('9.109383701e-31', 'Electron mass'),
+    '4: mμ': ('1.883531627e-28', 'Muon mass'),
+    '5: a0': ('0.5291772109e-10', 'Bohr radius'),
+    '6: h': ('6.62607015e-34', 'Planck constant'),
+    '7: μN': ('5.050783746e-27', 'Nuclear magneton'),
+    '8: μB': ('9.274010078e-24', 'Bohr magneton'),
+    '9: ℏ': ('1.054571817e-34', 'Reduced Planck constant'),
+    '10: α': ('7.297352569e-3', 'Fine-structure constant'),
+    '11: re': ('2.817940322e-15', 'Classical electron radius'),
+    '12: λc': ('2.426310238e-12', 'Compton wavelength'),
+    '13: γp': ('2.675221874e8', 'Proton gyromagnetic ratio'),
+    '14: λcp': ('1.321409853e-15', 'Proton Compton wavelength'),
+    '15: λcn': ('1.319590904e-15', 'Neutron Compton wavelength'),
+    '16: R∞': ('10973731.568', 'Rydberg constant'),
+    '17: u': ('1.660539066e-27', 'Atomic mass unit'),
+    '18: μp': ('1.410606797e-26', 'Proton magnetic moment'),
+    '19: μe': ('-9.284764704e-24', 'Electron magnetic moment'),
+    '20: μn': ('-0.96623651e-26', 'Neutron magnetic moment'),
+    '21: μμ': ('-4.4904483e-26', 'Muon magnetic moment'),
+    '22: F': ('96485.33212', 'Faraday constant'),
+    '23: e': ('1.602176634e-19', 'Elementary charge'),
+    '24: NA': ('6.02214076e23', 'Avogadro constant'),
+    '25: k': ('1.380649e-23', 'Boltzmann constant'),
+    '26: Vm': ('0.022413962', 'Molar volume of ideal gas'),
+    '27: R': ('8.314462618', 'Molar gas constant'),
+    '28: C0': ('299792458', 'Speed of light'),
+    '29: C1': ('3.741771852e-16', 'First radiation constant'),
+    '30: C2': ('0.01438776877', 'Second radiation constant'),
+    '31: σ': ('5.670374419e-8', 'Stefan-Boltzmann constant'),
+    '32: ε0': ('8.854187812e-12', 'Electric constant'),
+    '33: μ0': ('1.256637062e-6', 'Magnetic constant'),
+    '34: Φ0': ('2.067833848e-15', 'Magnetic flux quantum'),
+    '35: g': ('9.80665', 'Standard acceleration of gravity'),
+    '36: G': ('6.67430e-11', 'Newtonian constant of gravitation'),
+    '37: Z0': ('376.7303136', 'Characteristic impedance of vacuum'),
+    '38: t': ('273.15', 'Celsius temperature 0K'),
+    '39: G0': ('7.748091729e-5', 'Conductance quantum'),
+    '40: KJ': ('483597.8484e9', 'Josephson constant'),
+    '41: RK': ('25812.80745', 'von Klitzing constant'),
+    '42: Rme': ('1836.152673', 'Proton mass / electron mass'),
+    '43: GF': ('1.1663787e-5', 'Fermi coupling constant'),
+    '44: ZW': ('0.22290', 'Weak mixing angle'),
+    '45: W': ('80.379', 'W boson mass'),
+    '46: Z': ('91.1876', 'Z boson mass'),
+    '47: a': ('2.17647e-8', 'Planck mass'),
+}
+
+def dec_wrap(func):
+    def wrapper(*args):
+        try:
+            return Decimal(str(func(*[float(a) for a in args])))
+        except Exception:
+            return func(*args)
+    return wrapper
 
 class SmartCalculatorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Smart Calculator")
-        # Slightly larger window to fit scientific buttons
-        self.root.geometry("480x640")
+        self.root.title("Casio fx-991EX ClassWiz Emulator")
+        self.root.geometry("1000x750")
 
-        # Styling constants (preserve original fonts)
-        self.DISPLAY_FONT = ("Arial", 20)
-        self.BTN_FONT = ("Arial", 18)
-        self.BTN_PADX = 5
-        self.BTN_PADY = 5
+        self.DISPLAY_FONT = ("Consolas", 28, "bold")
 
-        # Calculator state
-        self.mode = 'Standard'  # Standard | Scientific | Statistical
+        self.mode = 'Standard'  # Standard, Complex, Matrix, Graph
         self.shift = False
         self.alpha = False
+        self.sd_mode = False
+        self.eng_mode = False
         self.waiting_store = False
-        self.waiting_recall = False
-        self.vars = {}  # variable storage when using Alpha/STO
-        # alias to satisfy API expecting `self.variables`
-        self.variables = self.vars
-        self.ans = 0
+        
+        # 9-Variable Registry + Matrix placeholders
+        self.variables = {v: Decimal('0') for v in ['A', 'B', 'C', 'D', 'E', 'F', 'M', 'X', 'Y']}
+        self.vars = self.variables  # Alias for existing code
+        self.matrices = {'MatA': [], 'MatB': [], 'MatC': []}
+        
+        self.ans = Decimal('0')
         self.history = []
-        # Variable input mode state
-        self.var_input_mode = False
-        self.pending_expr = ''
-        self.var_list = []
-        self.var_index = 0
+        
+        self.window_settings = {'Xmin': -10, 'Xmax': 10, 'Ymin': -10, 'Ymax': 10}
 
-        # Safe functions available to evaluations
         self.safe_funcs = {
-            'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
-            'asin': math.asin, 'acos': math.acos, 'atan': math.atan,
-            'sinh': math.sinh, 'cosh': math.cosh, 'tanh': math.tanh,
-            'sqrt': math.sqrt, 'ln': math.log, 'log': math.log10,
-            'exp': math.exp, 'abs': abs, 'pow': pow,
-            'pi': math.pi, 'e': math.e, 'factorial': math.factorial,
-            'mean': statistics.mean, 'median': statistics.median, 'std': statistics.pstdev
+            'sin': dec_wrap(math.sin), 'cos': dec_wrap(math.cos), 'tan': dec_wrap(math.tan),
+            'asin': dec_wrap(math.asin), 'acos': dec_wrap(math.acos), 'atan': dec_wrap(math.atan),
+            'sinh': dec_wrap(math.sinh), 'cosh': dec_wrap(math.cosh), 'tanh': dec_wrap(math.tanh),
+            'sqrt': dec_wrap(math.sqrt), 'ln': dec_wrap(math.log), 'log': dec_wrap(math.log10),
+            'exp': dec_wrap(math.exp), 'abs': dec_wrap(abs), 'pow': dec_wrap(math.pow),
+            'pi': Decimal(str(math.pi)), 'e': Decimal(str(math.e)), 'factorial': dec_wrap(math.factorial),
+            'Arg': lambda z: Decimal(str(cmath.phase(complex(z)))),
+            'Conjg': lambda z: complex(z).conjugate(),
+            'Det': self._det, 'Trn': self._trn, 'Dot': self._dot,
+            'num_int': self.num_int, 'num_deriv': self.num_deriv
         }
 
-        # Keep created button widgets so we can update them
         self.button_widgets = {}
-
         self.create_widgets()
 
+    def _det(self, mat): return Decimal(str(np.linalg.det(np.array(mat))))
+    def _trn(self, mat): return np.array(mat).T.tolist()
+    def _dot(self, m1, m2): return np.dot(np.array(m1), np.array(m2)).tolist()
+
     def create_widgets(self):
-        # Display
-        self.display = tk.Entry(self.root, font=self.DISPLAY_FONT, justify='right')
-        self.display.grid(row=0, column=0, columnspan=4, sticky="nsew", padx=10, pady=10)
+        BG_MAIN = "#1e1e2f"
+        self.root.configure(bg=BG_MAIN)
+        self.left_frame = tk.Frame(self.root, bg=BG_MAIN)
+        self.left_frame.pack(side="left", fill="both", expand=True, padx=20, pady=20)
 
-        # Prompt/status label for variable input mode
-        self.prompt_label = tk.Label(self.root, text='', font=("Arial", 14), anchor='w')
-        self.prompt_label.grid(row=11, column=0, columnspan=4, sticky="nsew", padx=6, pady=(0,6))
+        self.right_frame = tk.Frame(self.root, width=350, bg="#252538")
+        self.right_frame.pack(side="right", fill="y", padx=20, pady=20)
+        self.right_frame.pack_propagate(False)
 
-        # Top controls: Mode, Shift, Alpha, Reset
-        top_controls = [
-            ('Mode', self.toggle_mode),
-            ('Shift', self.toggle_shift),
-            ('Alpha', self.toggle_alpha),
-            ('Reset', self.reset_all),
+        tk.Label(self.right_frame, text="LOGIC STEPS", font=("Segoe UI", 14, "bold"), bg="#252538", fg="#00e5ff").pack(pady=(15, 5))
+        self.steps_list = tk.Listbox(self.right_frame, font=("Consolas", 12), bg="#181825", fg="#a6accd", selectbackground="#3e3e5c", highlightthickness=0, bd=0)
+        self.steps_list.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+        # Status bar
+        self.status_var = tk.StringVar(value="D   Standard")
+        self.status_label = tk.Label(self.left_frame, textvariable=self.status_var, font=("Consolas", 11, "bold"), bg="#1e1e2f", fg="#a6accd", anchor="w")
+        self.status_label.grid(row=0, column=0, columnspan=5, sticky="nsew", pady=(0,5))
+
+        self.display = tk.Entry(self.left_frame, font=self.DISPLAY_FONT, justify='right', bg="#cceae7", fg="#003333", bd=0)
+        self.display.grid(row=1, column=0, columnspan=5, sticky="nsew", pady=(0, 20), ipady=15)
+
+        def make_btn(txt, r, c, cmd, bg="#33334d", fg="#ffffff", font=("Segoe UI", 13, "bold"), hover_bg="#4d4d73"):
+            btn = tk.Button(self.left_frame, text=txt, command=cmd, bg=bg, fg=fg, font=font, 
+                            activebackground=hover_bg, activeforeground="white", 
+                            relief="flat", bd=0, cursor="hand2")
+            btn.grid(row=r, column=c, sticky="nsew", padx=4, pady=4)
+            btn.bind("<Enter>", lambda e, b=btn, h=hover_bg: b.config(bg=h))
+            btn.bind("<Leave>", lambda e, b=btn, color=bg: b.config(bg=color))
+            return btn
+
+        # Row 2
+        self.btn_shift = make_btn("SHIFT", 2, 0, self.toggle_shift, bg="#3b4252", hover_bg="#4c566a")
+        self.btn_alpha = make_btn("ALPHA", 2, 1, self.toggle_alpha, bg="#3b4252", hover_bg="#4c566a")
+        make_btn("MODE", 2, 2, self.toggle_mode, bg="#3b4252", hover_bg="#4c566a")
+        make_btn("S-D", 2, 3, self.toggle_sd, bg="#3b4252", hover_bg="#4c566a")
+        make_btn("ENG", 2, 4, self.toggle_eng, bg="#3b4252", hover_bg="#4c566a")
+
+        # Row 3
+        make_btn("CALC\n(=)", 3, 0, self.on_calc)
+        make_btn("∫", 3, 1, self.prompt_integration)
+        make_btn("d/dx", 3, 2, self.prompt_derivative)
+        make_btn("WINDOW", 3, 3, self.on_window)
+        make_btn("STO", 3, 4, self.toggle_store)
+
+        # Row 4
+        make_btn("x⁻¹", 4, 0, lambda: self.insert_text("⁻¹"))
+        make_btn("√", 4, 1, lambda: self.insert_text("√("))
+        make_btn("x²", 4, 2, lambda: self.insert_text("²"))
+        make_btn("^", 4, 3, lambda: self.insert_text("^"))
+        make_btn("i", 4, 4, lambda: self.insert_text("i"))
+
+        # Row 5
+        make_btn("log", 5, 0, lambda: self.insert_text("log("))
+        make_btn("ln", 5, 1, lambda: self.insert_text("ln("))
+        make_btn("sin", 5, 2, lambda: self.insert_text("sin("))
+        make_btn("cos", 5, 3, lambda: self.insert_text("cos("))
+        make_btn("tan", 5, 4, lambda: self.insert_text("tan("))
+
+        # Row 6
+        for i, v in enumerate(["A", "B", "C", "D", "E"]):
+            make_btn(v, 6, i, lambda x=v: self.insert_text(x), fg="#ff79c6")
+
+        # Row 7
+        make_btn("F", 7, 0, lambda: self.insert_text("F"), fg="#ff79c6")
+        make_btn("X", 7, 1, lambda: self.insert_text("X"), fg="#ff79c6")
+        make_btn("Y", 7, 2, lambda: self.insert_text("Y"), fg="#ff79c6")
+        make_btn("M", 7, 3, lambda: self.insert_text("M"), fg="#ff79c6")
+        make_btn(",", 7, 4, lambda: self.insert_text(","))
+
+        # Row 8
+        make_btn("(", 8, 0, lambda: self.insert_text("("))
+        make_btn(")", 8, 1, lambda: self.insert_text(")"))
+        make_btn("M+", 8, 2, self.m_plus)
+        make_btn("M-", 8, 3, self.m_minus)
+        make_btn("∠", 8, 4, lambda: self.insert_text("∠"))
+
+        # Row 9
+        make_btn("Det", 9, 0, lambda: self.insert_text("Det("))
+        make_btn("Trn", 9, 1, lambda: self.insert_text("Trn("))
+        make_btn("Dot", 9, 2, lambda: self.insert_text("Dot("))
+        make_btn("Arg", 9, 3, lambda: self.insert_text("Arg("))
+        make_btn("Conjg", 9, 4, lambda: self.insert_text("Conjg("))
+
+        # Keypad (Rows 10-13)
+        keys = [
+            ("7\n(CONST)",10,0), ("8",10,1), ("9\n(RESET)",10,2), ("DEL",10,3, "#ff5555", "#ff7777", "white"), ("AC",10,4, "#ff5555", "#ff7777", "white"),
+            ("4",11,0), ("5",11,1), ("6",11,2), ("*",11,3, "#44475a", "#6272a4", "white"), ("/",11,4, "#44475a", "#6272a4", "white"),
+            ("1",12,0), ("2",12,1), ("3",12,2), ("+",12,3, "#44475a", "#6272a4", "white"), ("-",12,4, "#44475a", "#6272a4", "white"),
+            ("0",13,0), (".",13,1), ("EXP",13,2), ("Ans",13,3), ("=",13,4, "#00e5ff", "#5cffff", "#000000")
         ]
-        for i, (label, cmd) in enumerate(top_controls):
-            btn = tk.Button(self.root, text=label, font=self.BTN_FONT, command=cmd)
-            btn.grid(row=1, column=i, sticky="nsew", padx=self.BTN_PADX, pady=self.BTN_PADY)
-            self.button_widgets[label] = btn
+        
+        for item in keys:
+            txt, r, c = item[0], item[1], item[2]
+            bg = item[3] if len(item) > 3 else "#e6e6e6"
+            hover_bg = item[4] if len(item) > 4 else "#ffffff"
+            fg = item[5] if len(item) > 5 else ("white" if len(item) > 3 else "black")
+            
+            if txt == "AC": cmd = self.clear_entry
+            elif txt == "DEL": cmd = self.delete_one
+            elif txt == "=": cmd = self.calculate
+            elif txt == "Ans": cmd = lambda: self.insert_text("ans")
+            elif txt == "EXP": cmd = lambda: self.insert_text("E")
+            elif txt == "7\n(CONST)": cmd = lambda x="7": self.insert_text(x)
+            elif txt == "9\n(RESET)": cmd = lambda x="9": self.insert_text(x)
+            else: cmd = lambda x=txt: self.insert_text(x)
+            make_btn(txt, r, c, cmd, bg=bg, fg=fg, font=("Segoe UI", 15, "bold"), hover_bg=hover_bg)
 
-        # Scientific row (visible in Scientific mode)
-        sci_row_1 = [
-            ('π', lambda: self.insert_text('pi')),
-            ('e', lambda: self.insert_text('e')),
-            ('(', lambda: self.insert_text('(')),
-            (')', lambda: self.insert_text(')')),
-        ]
-        for i, (label, cmd) in enumerate(sci_row_1):
-            btn = tk.Button(self.root, text=label, font=self.BTN_FONT, command=cmd)
-            btn.grid(row=2, column=i, sticky="nsew", padx=self.BTN_PADX, pady=self.BTN_PADY)
-            self.button_widgets[label] = btn
+        for r in range(14): self.left_frame.grid_rowconfigure(r, weight=1)
+        for c in range(5): self.left_frame.grid_columnconfigure(c, weight=1)
 
-        sci_row_2 = [
-            ('sin', lambda: self.handle_trig('sin')),
-            ('cos', lambda: self.handle_trig('cos')),
-            ('tan', lambda: self.handle_trig('tan')),
-            ('!', lambda: self.insert_text('!')),
-        ]
-        for i, (label, cmd) in enumerate(sci_row_2):
-            btn = tk.Button(self.root, text=label, font=self.BTN_FONT, command=cmd)
-            btn.grid(row=3, column=i, sticky="nsew", padx=self.BTN_PADX, pady=self.BTN_PADY)
-            self.button_widgets[label] = btn
+        self.update_status()
 
-        sci_row_3 = [
-            ('ln', lambda: self.insert_text('ln(')),
-            ('log', lambda: self.insert_text('log(')),
-            ('ANS', self.insert_ans),
-            ('STO', self.toggle_store),
-        ]
-        for i, (label, cmd) in enumerate(sci_row_3):
-            btn = tk.Button(self.root, text=label, font=self.BTN_FONT, command=cmd)
-            btn.grid(row=4, column=i, sticky="nsew", padx=self.BTN_PADX, pady=self.BTN_PADY)
-            self.button_widgets[label] = btn
+    def update_status(self):
+        status = ["D"]
+        status.append(self.mode)
+        if self.shift: status.append("[SHIFT]")
+        if self.alpha: status.append("[ALPHA]")
+        if self.sd_mode: status.append("[S-D]")
+        if self.eng_mode: status.append("[ENG]")
+        if self.waiting_store: status.append("[STO]")
+        self.status_var.set("   ".join(status))
 
-        # Numeric keypad and basic operations (preserve original layout)
-        keypad = [
-            ('7', 5, 0), ('8', 5, 1), ('9', 5, 2), ('/', 5, 3),
-            ('4', 6, 0), ('5', 6, 1), ('6', 6, 2), ('*', 6, 3),
-            ('1', 7, 0), ('2', 7, 1), ('3', 7, 2), ('-', 7, 3),
-            ('0', 8, 0), ('.', 8, 1), ('+', 8, 2), ('=', 8, 3),
-        ]
-        for (text, row, col) in keypad:
-            btn = tk.Button(self.root, text=text, font=self.BTN_FONT,
-                            command=lambda t=text: self.on_button_click(t))
-            btn.grid(row=row, column=col, sticky="nsew", padx=self.BTN_PADX, pady=self.BTN_PADY)
-            self.button_widgets[text] = btn
+    def add_step(self, step_text):
+        self.steps_list.insert(tk.END, step_text)
+        self.steps_list.yview(tk.END)
 
-        # Extra row: power, sqrt, percent, clear
-        extra = [
-            ('^', lambda: self.insert_text('^')),
-            ('√', lambda: self.insert_text('sqrt(')),
-            ('%', lambda: self.insert_text('%')),
-            ('C', self.clear_entry),
-        ]
-        for i, (label, cmd) in enumerate(extra):
-            btn = tk.Button(self.root, text=label, font=self.BTN_FONT, command=cmd)
-            btn.grid(row=9, column=i, sticky="nsew", padx=self.BTN_PADX, pady=self.BTN_PADY)
-            self.button_widgets[label] = btn
-
-        # Variable buttons for Alpha mode and recall
-        vars_row = [
-            ('A', lambda: self.handle_variable_key('A')),
-            ('B', lambda: self.handle_variable_key('B')),
-            ('X', lambda: self.handle_variable_key('X')),
-            ('RCL', self.toggle_recall),
-        ]
-        for i, (label, cmd) in enumerate(vars_row):
-            btn = tk.Button(self.root, text=label, font=self.BTN_FONT, command=cmd)
-            btn.grid(row=10, column=i, sticky="nsew", padx=self.BTN_PADX, pady=self.BTN_PADY)
-            self.button_widgets[label] = btn
-
-        # Configure grid to expand
-        for r in range(0, 12):
-            self.root.grid_rowconfigure(r, weight=1)
-        for c in range(0, 4):
-            self.root.grid_columnconfigure(c, weight=1)
-
-        self.update_mode_indicator()
-
-    # --- UI helper methods ---
-    def insert_text(self, txt: str):
+    def insert_text(self, txt):
+        if self.waiting_store and txt in self.vars:
+            self.store_var(txt)
+            return
+        if self.shift:
+            if txt == "sin(": txt = "asin("
+            elif txt == "cos(": txt = "acos("
+            elif txt == "tan(": txt = "atan("
+            elif txt == "7":
+                self.toggle_shift()
+                self.show_constants_menu()
+                return
+            elif txt == "9":
+                self.toggle_shift()
+                self.reset_all()
+                return
+            self.toggle_shift()
         self.display.insert(tk.END, txt)
 
     def clear_entry(self):
         self.display.delete(0, tk.END)
 
-    def on_button_click(self, char: str):
-        if char == '=':
-            # If we're in variable-entry flow, handle storing the typed value
-            if self.var_input_mode:
-                self._handle_var_entry()
-                return
-
-            # If Alpha modifier is active, start variable input mode when '=' pressed
-            if self.alpha:
-                started = self._start_variable_input_mode()
-                if started:
-                    return
-                # if not started (no variables found) fall through to calculate
-            self.calculate()
-            return
-        if char == 'C':
-            self.clear_entry()
-            return
-        self.insert_text(char)
-
-    # --- Variable input mode helpers ---
-    def _start_variable_input_mode(self) -> bool:
-        expr = self.display.get()
-        # Find single-letter uppercase variables (A-Z) not adjacent to other letters/digits
-        vars_found = []
-        for m in re.finditer(r"(?<![A-Za-z0-9_])([A-Z])(?![A-Za-z0-9_])", expr):
-            v = m.group(1)
-            if v not in vars_found:
-                vars_found.append(v)
-
-        if not vars_found:
-            # nothing to collect — don't intercept '='
-            messagebox.showinfo('No variables', 'No variables found to input.')
-            return False
-
-        # Initialize variable input state
-        self.var_input_mode = True
-        self.pending_expr = expr
-        self.var_list = vars_found
-        self.var_index = 0
-        # Clear display for user to type first value
-        self.clear_entry()
-        self.prompt_label.config(text=f"Enter value for {self.var_list[self.var_index]} and press =")
-        # keep Alpha active so typing letters still works; focus input
-        self.display.focus_set()
-        return True
-
-    def _handle_var_entry(self):
-        # Read user input for current variable
-        cur_var = self.var_list[self.var_index]
-        text = self.display.get().strip()
-        if text == '':
-            messagebox.showerror('Input error', f'Please enter a value for {cur_var}')
-            return
-
-        # Evaluate the entered text to allow expressions like 1/2
-        val, err = self._safe_eval(text)
-        if err:
-            messagebox.showerror('Input error', f'Invalid value for {cur_var}: {err}')
-            return
-
-        # Store value
-        self.vars[cur_var] = val
-        # move to next variable or evaluate final expression
-        self.var_index += 1
-        if self.var_index < len(self.var_list):
-            next_var = self.var_list[self.var_index]
-            self.clear_entry()
-            self.prompt_label.config(text=f"Enter value for {next_var} and press =")
-            self.display.focus_set()
-            return
-
-        # All variables assigned — evaluate pending expression with variables available
-        self.var_input_mode = False
-        self.prompt_label.config(text='')
-        # Evaluate using stored self.vars
-        val, err = self._safe_eval(self.pending_expr)
-        if err:
-            messagebox.showerror('Evaluation error', err)
-            # Reset pending state but keep stored variables
-            self.pending_expr = ''
-            return
-
-        # Show result
-        try:
-            out = int(val) if isinstance(val, (int,)) or (isinstance(val, float) and val.is_integer()) else val
-        except Exception:
-            out = val
+    def delete_one(self):
+        txt = self.display.get()
         self.display.delete(0, tk.END)
-        self.display.insert(0, str(out))
-        self.ans = val
-        self.history.append((self.pending_expr, val))
-        self.pending_expr = ''
-        # Optionally clear Alpha modifier
-        self.alpha = False
-        btn = self.button_widgets.get('Alpha')
-        if btn:
-            btn.config(bg=None)
-
-    # --- Mode and toggles ---
-    def toggle_mode(self):
-        modes = ['Standard', 'Scientific', 'Statistical']
-        idx = modes.index(self.mode)
-        self.mode = modes[(idx + 1) % len(modes)]
-        self.update_mode_indicator()
+        self.display.insert(0, txt[:-1])
 
     def toggle_shift(self):
         self.shift = not self.shift
-        # Visual indicator
-        btn = self.button_widgets.get('Shift')
-        if btn:
-            btn.config(bg='#ffd966' if self.shift else None)
+        self.btn_shift.config(bg="#cca12b" if self.shift else "#444", fg="black" if self.shift else "white")
+        self.update_status()
 
     def toggle_alpha(self):
         self.alpha = not self.alpha
-        btn = self.button_widgets.get('Alpha')
-        if btn:
-            btn.config(bg='#ffd966' if self.alpha else None)
+        self.btn_alpha.config(bg="#cc3333" if self.alpha else "#444")
+        self.update_status()
+
+    def toggle_sd(self):
+        self.sd_mode = not self.sd_mode
+        self.eng_mode = False
+        self.add_step("S-D Mode: " + ("Exact" if self.sd_mode else "Decimal"))
+        self.update_status()
+        if self.history:
+            self.display_result(self.history[-1])
+
+    def toggle_eng(self):
+        self.eng_mode = not self.eng_mode
+        self.sd_mode = False
+        self.add_step("ENG Mode: " + ("On" if self.eng_mode else "Off"))
+        self.update_status()
+        if self.history:
+            self.display_result(self.history[-1])
+
+    def show_constants_menu(self):
+        w = tk.Toplevel(self.root)
+        w.title("Scientific Constants")
+        w.geometry("400x300")
+        listbox = tk.Listbox(w, font=("Arial", 12))
+        listbox.pack(fill="both", expand=True)
+        for c in CASIO_CONSTANTS:
+            listbox.insert(tk.END, f"{c}  ({CASIO_CONSTANTS[c][1]})")
+        
+        def on_select(evt):
+            sel = listbox.curselection()
+            if sel:
+                key = listbox.get(sel[0]).split('  (')[0]
+                val = CASIO_CONSTANTS[key][0]
+                self.display.insert(tk.END, f"({val})")
+                self.add_step(f"Inserted Constant {key}")
+                w.destroy()
+                
+        listbox.bind("<<ListboxSelect>>", on_select)
+
+    def toggle_mode(self):
+        w = tk.Toplevel(self.root)
+        w.title("MODE SELECTION")
+        w.geometry("300x400")
+        w.configure(bg="#1e1e2f")
+        w.transient(self.root)
+        w.grab_set()
+        
+        tk.Label(w, text="Select Mode", font=("Segoe UI", 16, "bold"), bg="#1e1e2f", fg="#00e5ff").pack(pady=20)
+        
+        modes = [
+            ("1: Standard", 'Standard'),
+            ("2: Complex", 'Complex'),
+            ("3: Matrix", 'Matrix'),
+            ("4: Graph (Plot)", 'Graph')
+        ]
+        
+        def set_mode(m):
+            self.mode = m
+            self.update_title()
+            self.update_status()
+            self.add_step(f"Switched to {self.mode} Mode")
+            w.destroy()
+            
+        for text, mode_val in modes:
+            b = tk.Button(w, text=text, font=("Segoe UI", 14, "bold"), bg="#252538", fg="#ffffff", 
+                          relief="flat", activebackground="#4d4d73", activeforeground="white",
+                          command=lambda m=mode_val: set_mode(m), cursor="hand2")
+            b.pack(fill="x", padx=40, pady=10, ipady=8)
+            b.bind("<Enter>", lambda e, btn=b: btn.config(bg="#4d4d73"))
+            b.bind("<Leave>", lambda e, btn=b: btn.config(bg="#252538"))
 
     def toggle_store(self):
         self.waiting_store = not self.waiting_store
-        btn = self.button_widgets.get('STO')
-        if btn:
-            btn.config(bg='#a6f3a6' if self.waiting_store else None)
+        self.update_status()
+        self.add_step("Select variable to STO")
 
-    def toggle_recall(self):
-        self.waiting_recall = not self.waiting_recall
-        btn = self.button_widgets.get('RCL')
-        if btn:
-            btn.config(bg='#a6f3a6' if self.waiting_recall else None)
+    def store_var(self, var_name):
+        val, err = self._safe_eval(self.display.get())
+        if err: messagebox.showerror("Error", err)
+        else:
+            self.vars[var_name] = val
+            self.add_step(f"Stored {val} -> {var_name}")
+        self.waiting_store = False
+
+    def update_title(self):
+        self.root.title(f"Casio fx-991EX ClassWiz Emulator - {self.mode}")
+
+    def m_plus(self):
+        val, err = self._safe_eval(self.display.get())
+        if not err:
+            self.vars['M'] += val
+            self.add_step(f"M+ => M={self.vars['M']}")
+
+    def m_minus(self):
+        val, err = self._safe_eval(self.display.get())
+        if not err:
+            self.vars['M'] -= val
+            self.add_step(f"M- => M={self.vars['M']}")
 
     def reset_all(self):
-        # Clear memory, history, modes, and display
-        self.vars.clear()
-        self.history.clear()
-        self.ans = 0
+        self.variables = {v: Decimal('0') for v in ['A', 'B', 'C', 'D', 'E', 'F', 'M', 'X', 'Y']}
+        self.vars = self.variables
         self.mode = 'Standard'
-        self.shift = False
-        self.alpha = False
-        self.waiting_store = False
-        self.waiting_recall = False
-        # Reset button colors
-        for key in ('Shift', 'Alpha', 'STO', 'RCL'):
-            btn = self.button_widgets.get(key)
-            if btn:
-                btn.config(bg=None)
-        self.update_mode_indicator()
+        self.sd_mode = False
+        self.eng_mode = False
+        self.history.clear()
+        self.steps_list.delete(0, tk.END)
         self.clear_entry()
-        messagebox.showinfo('Reset', 'Calculator reset to defaults')
+        self.update_title()
+        self.update_status()
+        self.add_step("Reset Complete")
 
-    def update_mode_indicator(self):
-        btn = self.button_widgets.get('Mode')
-        if btn:
-            btn.config(text=f"Mode: {self.mode}")
+    def num_int(self, expr_str, a, b):
+        a, b = float(a), float(b)
+        n = 1000
+        if n % 2 != 0: n += 1
+        h = (b - a) / n
+        
+        env = self._get_env()
+        def f(x_val):
+            env['X'] = Decimal(str(x_val))
+            res = eval(expr_str, {}, env)
+            return float(res.real if isinstance(res, complex) else res)
 
-    # --- Variable handling ---
-    def handle_variable_key(self, var: str):
-        if self.waiting_store:
-            # Store current evaluated value into variable
-            val, err = self._safe_eval(self.display.get())
-            if err:
-                messagebox.showerror('Store error', err)
-            else:
-                self.vars[var] = val
-                messagebox.showinfo('Stored', f'{var} = {val}')
-            self.waiting_store = False
-            btn = self.button_widgets.get('STO')
-            if btn:
-                btn.config(bg=None)
-            return
+        s = f(a) + f(b)
+        for i in range(1, n, 2): s += 4 * f(a + i * h)
+        for i in range(2, n-1, 2): s += 2 * f(a + i * h)
+        return Decimal(str(s * h / 3))
 
-        if self.waiting_recall:
-            # Insert variable name (will be resolved during evaluation)
-            self.insert_text(var)
-            self.waiting_recall = False
-            btn = self.button_widgets.get('RCL')
-            if btn:
-                btn.config(bg=None)
-            return
+    def num_deriv(self, expr_str, x_val):
+        x_val = float(x_val)
+        h = 1e-7
+        env = self._get_env()
+        def f(x):
+            env['X'] = Decimal(str(x))
+            res = eval(expr_str, {}, env)
+            return float(res.real if isinstance(res, complex) else res)
+        return Decimal(str((f(x_val + h) - f(x_val - h)) / (2 * h)))
 
-        # If Alpha mode is active, allow typing variable letter
-        if self.alpha:
-            self.insert_text(var)
-        else:
-            # Default: insert the letter anyway (user may want variable)
-            self.insert_text(var)
+    def prompt_integration(self):
+        expr = simpledialog.askstring("Integration", "Enter function f(X):")
+        if not expr: return
+        a = simpledialog.askstring("Integration", "Enter lower limit a:")
+        if not a: return
+        b = simpledialog.askstring("Integration", "Enter upper limit b:")
+        if not b: return
+        self.insert_text(f"∫({expr}, {a}, {b})")
 
-    def insert_ans(self):
-        self.insert_text('ans')
+    def prompt_derivative(self):
+        expr = simpledialog.askstring("Derivative", "Enter function f(X):")
+        if not expr: return
+        x_val = simpledialog.askstring("Derivative", "Enter value for X:")
+        if not x_val: return
+        self.insert_text(f"d/dx({expr}, {x_val})")
 
-    # --- Trig handling (respect Shift -> inverse) ---
-    def handle_trig(self, which: str):
+    def on_calc(self):
         if self.shift:
-            inv = {'sin': 'asin', 'cos': 'acos', 'tan': 'atan'}.get(which, which)
-            self.insert_text(f"{inv}(")
-            # clear shift after use (like many calculators)
-            self.shift = False
-            btn = self.button_widgets.get('Shift')
-            if btn:
-                btn.config(bg=None)
+            self.toggle_shift()
+            self.on_solve()
+            return
+            
+        if self.alpha:
+            self.alpha = False
+            self.btn_alpha.config(bg="#444")
+            self.update_status()
+            self.insert_text("=")
+            return
+            
+        expr = self.display.get()
+        vars_found = list(set(re.findall(r'[A-FXYM]', expr)))
+        if not vars_found: return
+        for v in vars_found:
+            val = simpledialog.askstring("Input", f"{v}?")
+            if val is not None:
+                parsed, err = self._safe_eval(val)
+                if not err: self.vars[v] = parsed
+        self.add_step("CALC Variable Substitution:")
+        for v in vars_found: self.add_step(f"  {v} = {self.vars[v]}")
+        self.calculate()
+
+    def on_solve(self):
+        expr = self.display.get()
+        # lowercase x, y -> uppercase X, Y
+        expr = re.sub(r'\b[xX]\b', 'X', expr)
+        expr = re.sub(r'\b[yY]\b', 'Y', expr)
+
+        if "=" not in expr:
+            func_str = expr
         else:
-            self.insert_text(f"{which}(")
+            lhs, rhs = expr.split('=')
+            func_str = f"({lhs})-({rhs})"
+        
+        func_str = self.preprocess_expression(func_str)
+        
+        guess_str = simpledialog.askstring("SOLVE", "Initial guess for X?", initialvalue="0")
+        if guess_str is None: return
+        try: initial_guess = float(guess_str)
+        except: initial_guess = 0.0
 
-    # --- Preprocessing expressions before evaluation ---
-    def preprocess_expression(self, expr: str) -> str:
-        s = expr
-        # Replace unicode pi symbol if present
-        s = s.replace('π', 'pi')
-        # Replace caret with python power
-        s = s.replace('^', '**')
-        # Percent operator: convert x% to (x/100)
-        s = re.sub(r"(\d+(?:\.\d+)?)%", r"(\1/100)", s)
+        env = self._get_env()
+        def f(val):
+            env['X'] = Decimal(str(val))
+            res = eval(func_str, {}, env)
+            if isinstance(res, complex): return res.real
+            return float(res)
 
-        # Transform postfix factorial 'n!' into factorial(n)
-        # Repeat until no more '!' to handle nested cases like (2+3)!
-        while '!' in s:
-            new = re.sub(r"(\d+(?:\.\d+)?|\([^()]*\))!", r"factorial(\1)", s)
-            if new == s:
-                # cannot transform further; break to avoid infinite loop
+        guesses = [initial_guess, 1.0, -1.0, 10.0, -10.0, 100.0, -100.0, 3.14, 0.1]
+        solution = None
+        
+        for guess in guesses:
+            x = guess
+            found = False
+            for _ in range(100):
+                try:
+                    fx = f(x)
+                    if abs(fx) < 1e-10:
+                        found = True
+                        break
+                    dfx = (f(x + 1e-7) - f(x - 1e-7)) / 2e-7
+                    if abs(dfx) < 1e-12: 
+                        x += 0.1
+                        continue
+                    x_new = x - fx / dfx
+                    if abs(x_new - x) < 1e-10:
+                        if abs(f(x_new)) < 1e-8:
+                            found = True
+                        break
+                    x = x_new
+                except:
+                    break
+            if found:
+                solution = x
                 break
-            s = new
+                
+        if solution is not None:
+            self.vars['X'] = Decimal(str(solution))
+            self.add_step(f"SOLVE: X = {solution:.10g}")
+            self.display.delete(0, tk.END)
+            self.display.insert(0, f"{solution:.10g}")
+        else:
+            messagebox.showerror("SOLVE Error", "Could not find a solution.")
 
-        # Protect known function names that are followed immediately by '('
-        # so we don't insert a '*' between the function name and its argument list.
-        func_names = [fn for fn in self.safe_funcs.keys() if fn.isalpha()]
-        for fn in func_names:
-            # Mark function occurrences with a temporary marker so implicit
-            # multiplication rules don't break function calls (we'll restore later).
-            s = re.sub(r'\b' + re.escape(fn) + r"\s*\(", '__FUNC_' + fn + '#(', s)
+    def on_window(self):
+        w = tk.Toplevel(self.root)
+        w.title("WINDOW Settings")
+        entries = {}
+        for i, key in enumerate(['Xmin', 'Xmax', 'Ymin', 'Ymax']):
+            tk.Label(w, text=key).grid(row=i, column=0)
+            e = tk.Entry(w)
+            e.insert(0, str(self.window_settings[key]))
+            e.grid(row=i, column=1)
+            entries[key] = e
+        
+        def save():
+            try:
+                for k in entries: self.window_settings[k] = float(entries[k].get())
+                w.destroy()
+                self.add_step(f"WINDOW updated: {self.window_settings}")
+            except: messagebox.showerror("Error", "Invalid number")
+        tk.Button(w, text="Apply", command=save).grid(row=4, columnspan=2)
 
-        # Allow implicit multiplication like 2pi or 2A or )(
-        # Insert '*' between number and variable/function/paren where appropriate
-        s = re.sub(r"(?<=[0-9\.])(?=[A-Za-z(])", r"*", s)
-        s = re.sub(r"(?<=[A-Za-z0-9\)])(?=\()", r"*", s)
+    def on_graph(self):
+        expr_raw = self.display.get()
+        if not expr_raw: return
+        
+        expr_raw = re.sub(r'\b[xX]\b', 'X', expr_raw)
+        expr_raw = re.sub(r'\b[yY]\b', 'Y', expr_raw)
+        
+        xmin, xmax = self.window_settings['Xmin'], self.window_settings['Xmax']
+        ymin, ymax = self.window_settings['Ymin'], self.window_settings['Ymax']
+        
+        plt.figure("Smart Calc Graph", figsize=(8, 6))
+        plt.clf()
+        
+        x_vals = np.linspace(xmin, xmax, 400)
+        y_vals = np.linspace(ymin, ymax, 400)
+        X_grid, Y_grid = np.meshgrid(x_vals, y_vals)
+        
+        if "=" in expr_raw:
+            lhs_raw, rhs_raw = expr_raw.split('=')
+            func_str = f"({lhs_raw})-({rhs_raw})"
+        else:
+            func_str = f"Y-({expr_raw})"
+            
+        s = self.preprocess_expression(func_str)
+        # Remove Decimal wrapper to allow numpy operations
+        s = re.sub(r'Decimal\("([^"]+)"\)', r'\1', s)
+        
+        env = {
+            'sin': np.sin, 'cos': np.cos, 'tan': np.tan,
+            'asin': np.arcsin, 'acos': np.arccos, 'atan': np.arctan,
+            'sinh': np.sinh, 'cosh': np.cosh, 'tanh': np.tanh,
+            'sqrt': np.sqrt, 'ln': np.log, 'log': np.log10,
+            'exp': np.exp, 'abs': np.abs, 'pi': np.pi, 'e': np.e,
+            'X': X_grid, 'Y': Y_grid
+        }
+        
+        try:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                Z = eval(s, {}, env)
+                if np.isscalar(Z):
+                    Z = np.full_like(X_grid, Z)
+                plt.contour(X_grid, Y_grid, Z, levels=[0], colors=['#ff0055'], linewidths=2)
+            plt.title(f"Graph of: {expr_raw}", fontsize=14, fontweight='bold', color='#33334d')
+        except Exception as e:
+            messagebox.showerror("Graph Error", f"Could not plot equation.\n{e}")
+            return
+            
+        plt.xlim(xmin, xmax)
+        plt.ylim(ymin, ymax)
+        plt.axhline(0, color='black', linewidth=1)
+        plt.axvline(0, color='black', linewidth=1)
+        plt.grid(True, linestyle='--', alpha=0.6)
+        
+        ax = plt.gca()
+        ax.set_facecolor('#f8f9fa')
+        plt.show()
 
-        # Restore protected function names
-        for fn in func_names:
-            s = s.replace('__FUNC_' + fn + '#(', fn + '(')
+    def preprocess_expression(self, expr):
+        s = expr
+        s = re.sub(r'\b[xX]\b', 'X', s)
+        s = re.sub(r'\b[yY]\b', 'Y', s)
+        s = re.sub(r'\b[aA]\b', 'A', s)
+        s = re.sub(r'\b[bB]\b', 'B', s)
+        s = re.sub(r'\b[cC]\b', 'C', s)
+        s = re.sub(r'\b[dD]\b', 'D', s)
+        s = re.sub(r'\b[fF]\b', 'F', s)
+        s = re.sub(r'\b[mM]\b', 'M', s)
 
+        # Substitute Visuals
+        s = s.replace("²", "**2").replace("³", "**3").replace("⁻¹", "**-1")
+        s = s.replace("√(", "sqrt(")
+        s = s.replace("∠", "*exp(1j*")
+        s = s.replace("^", "**")
+        
+        # Unary Minus & Exponents (Handled naturally by python precedence: -3**2 = -9)
+        # Numerical Calculus substitutions
+        s = re.sub(r'∫\(([^,]+),\s*([^,]+),\s*([^)]+)\)', r'num_int("\1", \2, \3)', s)
+        s = re.sub(r'd/dx\(([^,]+),\s*([^)]+)\)', r'num_deriv("\1", \2)', s)
+        
+        # Implicit Multiplication (e.g. 2X -> 2*X, X Y -> X*Y, 2(3) -> 2*(3))
+        # We wrap implicit multiplications in parenthesis to ensure Casio priority 1/2X becomes 1/(2*X)
+        old_s = ""
+        while old_s != s:
+            old_s = s
+            s = re.sub(r'(\d+(?:\.\d+)?|\b[A-FXYM]\b|\))\s*([A-FXYM]\b|\bpi\b|\be\b|\(|sin\b|cos\b|tan\b|log\b|ln\b|sqrt\b|Arg\b|Conjg\b)', r'(\1*\2)', s)
+        
+        # Decimal Wrapper for numbers
+        s = re.sub(r'\b(\d+\.\d+|\d+)\b', r'Decimal("\1")', s)
+        
+        # Complex Mode i
+        s = re.sub(r'\bi\b', r'1j', s)
+        
         return s
 
-    # --- Evaluation ---
-    def _safe_eval(self, expr: str):
-        # Returns (value, error_message) where error_message is empty string on success
-        s = expr.strip()
-        if not s:
-            return None, 'Empty expression'
-        # Replace display-specific tokens and preprocess
-        try:
-            s2 = self.preprocess_expression(s)
-        except Exception as e:
-            return None, f'Preprocessing error: {e}'
-
-        # Build evaluation environment
+    def _get_env(self):
         env = dict(self.safe_funcs)
-        # Merge variables (A, B, X, etc.)
-        for k, v in self.vars.items():
-            env[k] = v
-        # Current answer available as 'ans'
+        env.update(self.vars)
         env['ans'] = self.ans
+        if self.mode == 'Complex':
+            env['i'] = 1j
+        return env
 
+    def _safe_eval(self, expr):
+        if not expr.strip(): return Decimal('0'), ""
         try:
-            # Use empty globals dict to avoid NameError/TypeError issues
-            result = eval(s2, {}, env)
-            return result, ''
+            self.add_step(f"Input: {expr}")
+            
+            # Extract and log variables substitution BEFORE parsing
+            vars_in_expr = set(re.findall(r'\b[A-FXYM]\b', expr))
+            if vars_in_expr:
+                sub_str = ", ".join(f"{v}={self.vars[v]}" for v in sorted(vars_in_expr))
+                self.add_step(f"Substituted: {sub_str}")
+                
+            s = self.preprocess_expression(expr)
+            self.add_step(f"Parsed: {s}")
+            
+            env = self._get_env()
+            res = eval(s, {}, env)
+            
+            if isinstance(res, complex) and self.mode != 'Complex':
+                if abs(res.imag) < 1e-10:
+                    res = Decimal(str(res.real))
+                else:
+                    return None, "Math Error: Non-real result in Standard mode"
+            
+            return res, ""
         except ZeroDivisionError:
-            return None, 'Division by zero'
+            return None, "Math ERROR: Division by zero"
         except ValueError as e:
-            return None, f'Math domain error: {e}'
-        except NameError as e:
-            return None, f'Unknown symbol or variable: {e}'
+            if "math domain error" in str(e).lower():
+                return None, "Math ERROR: Domain error"
+            return None, f"Math ERROR: {e}"
         except Exception as e:
-            return None, f'Evaluation error: {e}'
+            return None, f"Syntax/Math ERROR: {e}"
 
     def calculate(self):
         expr = self.display.get()
+        
+        if self.mode == 'Graph':
+            self.on_graph()
+            return
+            
+        if "=" in expr:
+            self.on_solve()
+            return
+            
         val, err = self._safe_eval(expr)
         if err:
-            messagebox.showerror('Error', err)
+            messagebox.showerror("Error", err)
+            self.add_step(f"Error: {err}")
             return
-        # Update display, history and ans
-        try:
-            # Format floats neatly
-            out = int(val) if isinstance(val, (int,)) or (isinstance(val, float) and val.is_integer()) else val
-        except Exception:
-            out = val
-        self.display.delete(0, tk.END)
-        self.display.insert(0, str(out))
+            
         self.ans = val
-        self.history.append((expr, val))
-
+        self.history.append(val)
+        self.display_result(val)
+        
+    def display_result(self, val):
+        self.display.delete(0, tk.END)
+        
+        if self.sd_mode:
+            if isinstance(val, (int, float, Decimal)):
+                try:
+                    frac = fractions.Fraction(float(val)).limit_denominator(1000000)
+                    out = f"{frac.numerator}/{frac.denominator}"
+                except:
+                    out = f"{float(val):.10g}"
+            else:
+                out = str(val)
+        else:
+            if self.eng_mode:
+                try:
+                    v_float = float(val)
+                    if v_float == 0: out = "0"
+                    else:
+                        exponent = int(math.floor(math.log10(abs(v_float))))
+                        eng_exp = (exponent // 3) * 3
+                        mantissa = v_float / (10**eng_exp)
+                        out = f"{mantissa:.5g}E{eng_exp:+d}"
+                except: out = str(val)
+            else:
+                if isinstance(val, Decimal):
+                    out = f"{float(val):.10g}"
+                elif isinstance(val, complex):
+                    out = f"{val.real:.5g}{val.imag:+.5g}i"
+                elif isinstance(val, float):
+                    out = f"{val:.10g}"
+                else:
+                    out = str(val)
+                
+        self.display.insert(0, out)
+        self.add_step(f"Result: {out}")
+        self.add_step("-" * 20)
 
 if __name__ == "__main__":
     root = tk.Tk()
