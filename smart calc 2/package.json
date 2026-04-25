@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host --open",
-    "build": "npx vite build",
+    "build": "chmod +x node_modules/.bin/vite && vite build",
     "backend:demo": ".venv\\Scripts\\python.exe -m backend.run_demo",
     "backend:mail": ".venv\\Scripts\\python.exe -m backend.mail_server"
   },
