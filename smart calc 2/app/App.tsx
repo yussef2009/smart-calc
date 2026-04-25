@@ -7,17 +7,22 @@ import {
 import { 
   Activity, Calculator, History, Check, X, Code, 
   Terminal, BookOpen, Settings, AlertCircle, 
-  ChevronRight, Trash2, ChevronDown, ChevronUp, Layers
+  ChevronRight, Trash2, ChevronDown, ChevronUp, Layers,
+  User as UserIcon, LogOut, LogIn
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { AuthProvider, useAuth } from './lib/AuthContext';
+import { AuthModal } from './components/AuthModal';
+import { LoginPage } from './components/LoginPage';
+import { saveHistoryToFirestore, fetchHistoryFromFirestore } from './lib/historyService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type Tab = 'graph' | 'steps' | 'history';
-type CalcMode = 'normal' | 'complex' | 'matrix';
+type Tab = 'graph' | 'steps' | 'history' | 'guide';
+type CalcMode = 'COMP' | 'CMPLX' | 'BASE-N' | 'MATRIX' | 'VECTOR' | 'STAT' | 'EQN' | 'TABLE' | 'DIST' | 'LIMIT';
 
 interface HistoryItem {
   id: string;
@@ -36,6 +41,19 @@ interface WindowSettings {
   xMax: number;
   yMin: number;
   yMax: number;
+}
+
+interface CalculatorButton {
+  label: string;
+  val?: string;
+  action?: () => void;
+  shiftLabel?: string;
+  shiftVal?: string;
+  shiftAction?: () => void;
+  alphaLabel?: string;
+  alphaVal?: string;
+  alphaAction?: () => void;
+  type?: 'num' | 'ctrl' | 'op';
 }
 
 export default function App() {
@@ -59,7 +77,9 @@ export default function App() {
   const [currentVarIndex, setCurrentVarIndex] = useState(0);
   
   // New state for calculator modes
-  const [calcMode, setCalcMode] = useState<CalcMode>('normal');
+  const [calcMode, setCalcMode] = useState<CalcMode>('COMP');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   
   // New state for window settings
   const [windowSettings, setWindowSettings] = useState<WindowSettings>({
@@ -71,6 +91,11 @@ export default function App() {
   const [showWindowSettings, setShowWindowSettings] = useState(false);
   const [tempWindowSettings, setTempWindowSettings] = useState<WindowSettings>(windowSettings);
   
+  // Auth state
+  const { user, logout } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  
   const displayRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll display to right when typing long equations
@@ -79,6 +104,19 @@ export default function App() {
       displayRef.current.scrollLeft = displayRef.current.scrollWidth;
     }
   }, [expression]);
+
+  // Sync history from Firestore on login
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (user) {
+        const cloudHistory = await fetchHistoryFromFirestore(user.uid);
+        if (cloudHistory.length > 0) {
+          setHistory(cloudHistory);
+        }
+      }
+    };
+    loadHistory();
+  }, [user]);
 
   const analyzeError = (err: any, expr: string) => {
     const msg = err.message || err.toString();
@@ -162,19 +200,68 @@ export default function App() {
         result: formatRes,
         timestamp: Date.now()
       }, ...prev]);
+
+      // Sync to cloud if user is logged in
+      if (user) {
+        saveHistoryToFirestore(user.uid, {
+          expression: expr,
+          result: formatRes,
+          timestamp: Date.now()
+        });
+      }
       
       setActiveTab('steps');
+      setIsSidebarOpen(true);
     } catch(err: any) {
       setResult('Error');
       setError(analyzeError(err, expr));
       generateExplanation(expr, false);
       setActiveTab('steps');
+      setIsSidebarOpen(true);
     }
   };
 
+  // Keyboard controls
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if focus is in an input field (to allow typing in prompt modals)
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const key = e.key;
+      
+      // Numbers
+      if (/[0-9]/.test(key)) {
+        handleAppend(key);
+      }
+      // Operators
+      else if (key === '+') handleAppend('+');
+      else if (key === '-') handleAppend('-');
+      else if (key === '*') handleAppend('*');
+      else if (key === '/') handleAppend('/');
+      else if (key === '.') handleAppend('.');
+      else if (key === '(') handleAppend('(');
+      else if (key === ')') handleAppend(')');
+      else if (key === '^') handleAppend('^');
+      
+      // Controls
+      else if (key === 'Enter') {
+        if (calcMode === 'LIMIT') handleLimit();
+        else handleCalculate();
+      }
+      else if (key === 'Backspace') handleBackspace();
+      else if (key === 'Escape') handleClear();
+      else if (key.toLowerCase() === 's') setIsShift(!isShift);
+      else if (key.toLowerCase() === 'a') setIsAlpha(!isAlpha);
+      else if (key.toLowerCase() === 'm') handleModeButton();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expression, isShift, isAlpha, calcMode]);
+
   // Handle MODE button - cycle through calculator modes
   const handleModeButton = () => {
-    const modes: CalcMode[] = ['normal', 'complex', 'matrix'];
+    const modes: CalcMode[] = ['COMP', 'CMPLX', 'BASE-N', 'MATRIX', 'VECTOR', 'STAT', 'EQN', 'TABLE', 'DIST', 'LIMIT'];
     const currentIndex = modes.indexOf(calcMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
     setCalcMode(nextMode);
@@ -182,11 +269,18 @@ export default function App() {
     // Show mode indicator
     let modeIndicator = '';
     switch(nextMode) {
-      case 'normal': modeIndicator = 'Normal Mode'; break;
-      case 'complex': modeIndicator = 'Complex Mode (use i for imaginary)'; break;
-      case 'matrix': modeIndicator = 'Matrix Mode (experimental)'; break;
+      case 'COMP': modeIndicator = 'COMP: Standard Computation'; break;
+      case 'CMPLX': modeIndicator = 'CMPLX: Complex Numbers (use i)'; break;
+      case 'BASE-N': modeIndicator = 'BASE-N: Base-N Calculations'; break;
+      case 'MATRIX': modeIndicator = 'MATRIX: Matrix Operations'; break;
+      case 'VECTOR': modeIndicator = 'VECTOR: Vector Operations'; break;
+      case 'STAT': modeIndicator = 'STAT: Statistics & Regression'; break;
+      case 'EQN': modeIndicator = 'EQN: Equation Solver'; break;
+      case 'TABLE': modeIndicator = 'TABLE: Function Graphing/Table'; break;
+      case 'DIST': modeIndicator = 'DIST: Statistical Distribution'; break;
+      case 'LIMIT': modeIndicator = 'LIMIT: Limit Calculator'; break;
     }
-    generateExplanation(modeIndicator, false);
+    generateExplanation(`Mode Changed to ${modeIndicator}`, false);
   };
 
   // Handle Shift+MODE - open window settings
@@ -261,8 +355,23 @@ export default function App() {
   };
 
   const handleGraph = (exprToGraph?: string) => {
-    const targetExpr = exprToGraph || expression;
+    let targetExpr = exprToGraph || expression;
     if (!targetExpr) return;
+    
+    // Extract RHS if it's an equation like "Y=X^2" or "X^2=Y"
+    if (targetExpr.includes('=')) {
+      const parts = targetExpr.split('=');
+      if (parts[0].trim().toUpperCase() === 'Y') {
+        targetExpr = parts[1].trim();
+      } else if (parts[1].trim().toUpperCase() === 'Y') {
+        targetExpr = parts[0].trim();
+      } else {
+        targetExpr = parts[1].trim(); // fallback
+      }
+    }
+    
+    // Pre-process math.js syntax replacements if necessary
+    // e.g., 'Ans' is handled, but what if they typed an implicit multiplication like '2X'? mathjs usually handles 2X if X is a variable.
     
     setActiveTab('graph');
     
@@ -276,7 +385,8 @@ export default function App() {
       
       for (let x = windowSettings.xMin; x <= windowSettings.xMax + 0.001; x += step) {
         try {
-          let y = compiled.evaluate({ x, Ans: Number(ans) || 0 });
+          // Provide both x and X for the graph evaluation
+          let y = compiled.evaluate({ x, X: x, Ans: Number(ans) || 0 });
           if (typeof y === 'number' && !isNaN(y)) {
             // Clamp y to window if specified
             if (y > windowSettings.yMax) y = windowSettings.yMax;
@@ -298,6 +408,7 @@ export default function App() {
       setError(`Cannot plot function: ${analyzeError(err, targetExpr)}`);
       setActiveTab('steps');
     }
+    setIsSidebarOpen(true);
   };
 
   const handleAppend = (val: string) => {
@@ -332,6 +443,140 @@ export default function App() {
     setSteps([]);
   };
 
+  // Advanced equation solver using Grid Search + Newton-Raphson for multiple roots
+  const handleSolve = () => {
+    if (!expression || !expression.includes('=')) return;
+    
+    try {
+      const [lhs, rhs] = expression.split('=');
+      const f_expr = `${lhs} - (${rhs || 0})`;
+      const compiled = math.compile(f_expr);
+      
+      // Detect the variable being solved for (e.g. X, Y, A)
+      const varsInExpr = expression.match(/[A-Z]/g) || ['X'];
+      const targetVar = varsInExpr[0];
+      
+      const getF = (val: number) => compiled.evaluate({ [targetVar]: val, x: val, X: val, Ans: Number(ans) || 0 });
+      
+      let roots: number[] = [];
+      
+      // Grid search from -50 to 50 to find multiple roots (e.g., X^2 = 4 -> X=2, X=-2)
+      for (let guess = -50; guess <= 50; guess += 2) {
+        let x0 = guess;
+        let found = false;
+        
+        for (let i = 0; i < 50; i++) {
+          const f_x0 = getF(x0);
+          if (Math.abs(f_x0) < 1e-9) {
+            found = true;
+            break;
+          }
+          
+          const h = 1e-5;
+          const f_prime = (getF(x0 + h) - getF(x0 - h)) / (2 * h);
+          
+          if (Math.abs(f_prime) < 1e-15) break; // avoid division by zero
+          
+          x0 = x0 - f_x0 / f_prime;
+        }
+        
+        if (found) {
+          // Round to prevent floating point duplicates (e.g. 1.9999999 and 2.0)
+          const root = Number(x0.toFixed(6));
+          if (!roots.includes(root)) {
+            roots.push(root);
+          }
+        }
+      }
+      
+      if (roots.length > 0) {
+        // Sort roots ascending
+        roots.sort((a, b) => a - b);
+        
+        // Format result string
+        let resStr = roots.map((r, i) => roots.length > 1 ? `${targetVar}${i+1}=${r}` : `${targetVar}=${r}`).join(', ');
+        
+        setResult(resStr);
+        setAns(roots[0].toString()); // Save first root to Ans
+        generateExplanation(`Solved Equation: ${expression}\nRoots Found: ${resStr}`, false);
+      } else {
+        setResult('Error');
+        setError("Could not converge on a solution. The equation may have no real roots.");
+      }
+      setActiveTab('steps');
+      setIsSidebarOpen(true);
+    } catch(err: any) {
+      setResult('Error');
+      setError(`Cannot solve: ${analyzeError(err, expression)}`);
+      setActiveTab('steps');
+      setIsSidebarOpen(true);
+    }
+  };
+
+  // Evaluate Limit numerically
+  const handleLimit = () => {
+    if (!expression) return;
+    
+    const targetStr = prompt('Calculate limit as variable approaches what value? (e.g. 0)');
+    if (targetStr === null) return;
+    const target = parseFloat(targetStr);
+    
+    if (isNaN(target)) {
+      setError('Invalid limit target.');
+      return;
+    }
+    
+    try {
+      const compiled = math.compile(expression);
+      const varsInExpr = expression.match(/[A-Z]/g) || ['X'];
+      const targetVar = varsInExpr[0];
+      
+      const getF = (val: number) => compiled.evaluate({ [targetVar]: val, x: val, X: val, Ans: Number(ans) || 0 });
+      
+      const h1 = 1e-7;
+      const h2 = 1e-9;
+      
+      const left1 = getF(target - h1);
+      const left2 = getF(target - h2);
+      const right1 = getF(target + h1);
+      const right2 = getF(target + h2);
+      
+      let resStr = '';
+      let isValid = false;
+      
+      // If it approaches infinity
+      if (Math.abs(left2) > 1e10 && Math.abs(right2) > 1e10) {
+        resStr = left2 * right2 > 0 ? (left2 > 0 ? '+∞' : '-∞') : 'Undefined (diverges)';
+        isValid = true;
+      } else {
+        const diff = Math.abs(left2 - right2);
+        if (diff < 1e-3) {
+          const avg = (left2 + right2) / 2;
+          resStr = Number(avg.toFixed(6)).toString();
+          isValid = true;
+        } else {
+          resStr = 'Undefined (left/right bounds do not match)';
+          isValid = true;
+        }
+      }
+      
+      if (isValid) {
+        setResult(`lim = ${resStr}`);
+        generateExplanation(`Calculated Limit of ${expression} as ${targetVar} -> ${target}\nApproaching from left: ${left2.toFixed(6)}\nApproaching from right: ${right2.toFixed(6)}\nResult: ${resStr}`, false);
+      } else {
+        setResult('Error');
+        setError('Limit could not be evaluated.');
+      }
+      setActiveTab('steps');
+      setIsSidebarOpen(true);
+    } catch(err: any) {
+      setResult('Error');
+      setError(`Cannot evaluate limit: ${analyzeError(err, expression)}`);
+      setActiveTab('steps');
+      setIsSidebarOpen(true);
+    }
+  };
+
   const handleCalculate = () => {
     if (!expression) return;
 
@@ -339,6 +584,11 @@ export default function App() {
     if (isAlpha) {
       setIsAlpha(false);
       startVariablePrompt(expression);
+      return;
+    }
+
+    if (expression.includes('=')) {
+      handleSolve();
       return;
     }
 
@@ -373,40 +623,89 @@ export default function App() {
     else if (btn.val) handleAppend(btn.val);
   };
 
-  const sciRows = [
-    [
-      { label: 'CALC', action: handleCalculate, shiftLabel: 'SOLVE', alphaLabel: '=' },
-      { label: '∫dx', val: 'integrate(x,0,1,', shiftLabel: 'd/dx', shiftVal: 'derivative(x,0,', alphaLabel: 'nDeriv' },
-      { label: 'x⁻¹', val: '^-1', shiftLabel: 'x!', shiftVal: 'factorial(' },
-      { label: 'log_□', val: 'log(', shiftLabel: 'Σ', shiftVal: 'sum(n,1,10,', alphaLabel: 'Sum' },
-      { label: 'a/b', val: '/', shiftLabel: 'd/c' }
-    ],
-    [
-      { label: '√', val: 'sqrt(', shiftLabel: '∛', shiftVal: 'nthRoot(3,' },
-      { label: 'x²', val: '^2', shiftLabel: 'x³', shiftVal: '^3' },
-      { label: 'x^□', val: '^(', shiftLabel: 'x√', shiftVal: '^(1/' },
-      { label: 'log', val: 'log10(', shiftLabel: '10^x', shiftVal: '10^(' },
-      { label: 'ln', val: 'log(', shiftLabel: 'e^x', shiftVal: 'exp(' }
-    ],
-    [
-      { label: '(-)', val: '-', shiftLabel: 'A', alphaLabel: 'A', alphaVal: 'A', alphaAction: () => handleAppend('A') },
-      { label: '°\'"', val: 'deg', shiftLabel: 'B', alphaLabel: 'B', alphaVal: 'B', alphaAction: () => handleAppend('B') },
-      { label: 'hyp', val: 'cosh(', shiftLabel: 'C', alphaLabel: 'C', alphaVal: 'C', alphaAction: () => handleAppend('C') },
-      { label: 'sin', val: 'sin(', shiftLabel: 'sin⁻¹', shiftVal: 'asin(', alphaLabel: 'D', alphaVal: 'D', alphaAction: () => handleAppend('D') },
-      { label: 'cos', val: 'cos(', shiftLabel: 'cos⁻¹', shiftVal: 'acos(', alphaLabel: 'E', alphaVal: 'E', alphaAction: () => handleAppend('E') },
-      { label: 'tan', val: 'tan(', shiftLabel: 'tan⁻¹', shiftVal: 'atan(', alphaLabel: 'F', alphaVal: 'F', alphaAction: () => handleAppend('F') }
-    ],
-    [
-      { label: 'RCL', action: () => {}, shiftLabel: 'STO', alphaLabel: 'X', alphaVal: 'X', alphaAction: () => handleAppend('X') },
-      { label: 'ENG', val: 'e', shiftLabel: '←', alphaLabel: 'Y', alphaVal: 'Y', alphaAction: () => handleAppend('Y') },
-      { label: '(', val: '(', shiftLabel: '%', shiftVal: '%' },
-      { label: ')', val: ')', shiftLabel: ',', shiftVal: ',' },
-      { label: 'S⇔D', action: () => {}, shiftLabel: 'a', alphaLabel: 'M', alphaVal: 'M', alphaAction: () => handleAppend('M') },
-      { label: 'M+', val: '+', shiftLabel: 'M-', alphaLabel: 'Π', alphaVal: 'product(n,1,10,', alphaAction: () => handleAppend('Π') }
-    ]
-  ];
+  const getSciRows = (mode: CalcMode): CalculatorButton[][] => {
+    // Base layout (COMP Mode)
+    const baseRows: CalculatorButton[][] = [
+      [
+        { label: 'CALC', action: handleCalculate, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' },
+        { label: '∫dx', val: 'integrate(x,0,1,', shiftLabel: 'd/dx', shiftVal: 'derivative(x,0,', alphaLabel: 'nDeriv' },
+        { label: 'x⁻¹', val: '^-1', shiftLabel: 'x!', shiftVal: 'factorial(' },
+        { label: 'log_□', val: 'log(', shiftLabel: 'Σ', shiftVal: 'sum(n,1,10,', alphaLabel: 'Sum' },
+        { label: 'a/b', val: '/', shiftLabel: 'd/c' }
+      ],
+      [
+        { label: '√', val: 'sqrt(', shiftLabel: '∛', shiftVal: 'nthRoot(3,' },
+        { label: 'x²', val: '^2', shiftLabel: 'x³', shiftVal: '^3' },
+        { label: 'x^□', val: '^(', shiftLabel: 'x√', shiftVal: '^(1/' },
+        { label: 'log', val: 'log10(', shiftLabel: '10^x', shiftVal: '10^(' },
+        { label: 'ln', val: 'log(', shiftLabel: 'e^x', shiftVal: 'exp(' }
+      ],
+      [
+        { label: '(-)', val: '-', shiftLabel: 'A', alphaLabel: 'A', alphaVal: 'A', alphaAction: () => handleAppend('A') },
+        { label: '°\'"', val: 'deg', shiftLabel: 'B', alphaLabel: 'B', alphaVal: 'B', alphaAction: () => handleAppend('B') },
+        { label: 'hyp', val: 'cosh(', shiftLabel: 'C', alphaLabel: 'C', alphaVal: 'C', alphaAction: () => handleAppend('C') },
+        { label: 'sin', val: 'sin(', shiftLabel: 'sin⁻¹', shiftVal: 'asin(', alphaLabel: 'D', alphaVal: 'D', alphaAction: () => handleAppend('D') },
+        { label: 'cos', val: 'cos(', shiftLabel: 'cos⁻¹', shiftVal: 'acos(', alphaLabel: 'E', alphaVal: 'E', alphaAction: () => handleAppend('E') },
+        { label: 'tan', val: 'tan(', shiftLabel: 'tan⁻¹', shiftVal: 'atan(', alphaLabel: 'F', alphaVal: 'F', alphaAction: () => handleAppend('F') }
+      ],
+      [
+        { label: 'RCL', action: () => {}, shiftLabel: 'STO', alphaLabel: 'X', alphaVal: 'X', alphaAction: () => handleAppend('X') },
+        { label: 'ENG', val: 'e', shiftLabel: '←', alphaLabel: 'Y', alphaVal: 'Y', alphaAction: () => handleAppend('Y') },
+        { label: '(', val: '(', shiftLabel: '%', shiftVal: '%' },
+        { label: ')', val: ')', shiftLabel: ',', shiftVal: ',' },
+        { label: 'S⇔D', action: () => {}, shiftLabel: 'a', alphaLabel: 'M', alphaVal: 'M', alphaAction: () => handleAppend('M') },
+        { label: 'M+', val: '+', shiftLabel: 'M-', alphaLabel: 'Π', alphaVal: 'product(n,1,10,', alphaAction: () => handleAppend('Π') }
+      ]
+    ];
 
-  const numpadRows = [
+    let currentRows = [...baseRows];
+
+    if (mode === 'CMPLX') {
+      currentRows[1] = [...currentRows[1]];
+      currentRows[1][3] = { label: 'i', val: 'i', shiftLabel: '∠', alphaLabel: 'C' };
+      currentRows[1][4] = { label: 'Arg', val: 'arg(', shiftLabel: 'Conjg', alphaLabel: 'D' };
+    } else if (mode === 'BASE-N') {
+      currentRows[2] = [...currentRows[2]];
+      currentRows[2][2] = { label: 'DEC', val: 'dec', shiftLabel: 'HEX', alphaLabel: 'C' };
+      currentRows[2][3] = { label: 'BIN', val: 'bin', shiftLabel: 'OCT', alphaLabel: 'D' };
+    } else if (mode === 'MATRIX') {
+      currentRows[3] = [...currentRows[3]];
+      currentRows[3][0] = { label: 'MatA', val: 'MatA', shiftLabel: 'Det' };
+      currentRows[3][1] = { label: 'MatB', val: 'MatB', shiftLabel: 'Trn' };
+    } else if (mode === 'VECTOR') {
+      currentRows[3] = [...currentRows[3]];
+      currentRows[3][0] = { label: 'VctA', val: 'VctA', shiftLabel: 'Dot' };
+      currentRows[3][1] = { label: 'VctB', val: 'VctB', shiftLabel: 'Cross' };
+    } else if (mode === 'STAT') {
+      currentRows[2] = [...currentRows[2]];
+      currentRows[2][2] = { label: '1-VAR', val: '1var' };
+      currentRows[2][3] = { label: 'A+BX', val: 'a+bx' };
+    } else if (mode === 'EQN') {
+      currentRows[0] = [...currentRows[0]];
+      currentRows[0][1] = { label: 'Simul', val: 'simul(' };
+      currentRows[0][2] = { label: 'Poly', val: 'poly(' };
+    } else if (mode === 'TABLE') {
+      currentRows[3] = [...currentRows[3]];
+      currentRows[3][0] = { label: 'f(x)', val: 'f(x)=' };
+      currentRows[3][1] = { label: 'g(x)', val: 'g(x)=' };
+    } else if (mode === 'DIST') {
+      currentRows[2] = [...currentRows[2]];
+      currentRows[2][2] = { label: 'Normal', val: 'normPD(' };
+      currentRows[2][3] = { label: 'Binom', val: 'binomPD(' };
+    } else if (mode === 'LIMIT') {
+      currentRows[0] = [...currentRows[0]];
+      // Replace CALC with EVAL LIM
+      currentRows[0][0] = { label: 'EVAL', action: handleLimit, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' };
+      currentRows[0][1] = { label: 'lim→', action: handleLimit };
+      currentRows[0][2] = { label: '∞', val: 'Infinity' };
+    }
+
+    return currentRows;
+  };
+
+  const sciRows = getSciRows(calcMode);
+
+  const numpadRows: CalculatorButton[][] = [
     [
       { label: '7', val: '7', type: 'num' },
       { label: '8', val: '8', type: 'num' },
@@ -447,7 +746,7 @@ export default function App() {
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-8 sm:h-9 bg-[#111827] hover:bg-[#1E293B] text-slate-300 rounded-[8px] sm:rounded-[10px] text-xs font-semibold shadow-sm border-b-[3px] border-[#0B0F19] active:border-b-0 active:translate-y-[3px] transition-all",
+            "w-full h-8 sm:h-9 bg-[#33334d] hover:bg-[#4d4d73] text-slate-100 rounded-[8px] sm:rounded-[10px] text-xs font-semibold shadow-sm border-b-[3px] border-[#1e1e2f] active:border-b-0 active:translate-y-[3px] transition-all",
             btn.label === 'CALC' ? "bg-slate-700 hover:bg-slate-600 border-slate-900" : ""
           )}
         >
@@ -458,14 +757,14 @@ export default function App() {
   };
 
   const renderNumButton = (btn: any, i: number) => {
-    let variantClass = "bg-[#2A374A] hover:bg-[#334155] text-white border-b-[3px] border-[#161D2E]";
+    let variantClass = "bg-[#282a36] hover:bg-[#383a48] text-white border-b-[3px] border-[#161820]";
     
     if (btn.type === 'op') {
-      variantClass = "bg-blue-900/30 hover:bg-blue-800/40 text-blue-400 border-b-[3px] border-blue-950";
+      variantClass = "bg-[#44475a] hover:bg-[#56596e] text-white border-b-[3px] border-[#292b36]";
     } else if (btn.type === 'ctrl') {
       variantClass = btn.label === '=' 
-        ? "bg-blue-600 hover:bg-blue-500 text-white border-b-[3px] border-blue-800"
-        : "bg-red-950/40 hover:bg-red-900/50 text-red-400 border-b-[3px] border-red-900/60";
+        ? "bg-[#00e5ff] hover:bg-[#33ebff] text-black border-b-[3px] border-[#00a3b8]"
+        : "bg-[#ff5555] hover:bg-[#ff7777] text-white border-b-[3px] border-[#cc4444]";
     }
 
     return (
@@ -487,38 +786,187 @@ export default function App() {
     );
   };
 
+  const toggleSidebar = (tab: Tab) => {
+    if (isSidebarOpen && activeTab === tab) {
+      setIsSidebarOpen(false);
+    } else {
+      setActiveTab(tab);
+      setIsSidebarOpen(true);
+    }
+  };
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-200 font-sans selection:bg-blue-500/30 flex items-center justify-center p-4 sm:p-6 md:p-8">
-      <div className="max-w-6xl w-full h-[90vh] min-h-[600px] flex flex-col md:flex-row gap-6">
+    <div className={cn("min-h-screen font-sans selection:bg-blue-500/30 flex flex-col items-center transition-all duration-300", isDarkMode ? "bg-[#0f172a] text-slate-200" : "bg-slate-200 text-slate-800")}>
+      
+      {/* SYSTEM TOP BAR */}
+      <div className="w-full h-12 bg-[#1A2235]/80 backdrop-blur-md border-b border-white/5 px-6 flex items-center justify-between z-[100] sticky top-0 shadow-xl">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2.5">
+             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-900/40">
+               <Calculator className="w-4 h-4 text-white" />
+             </div>
+             <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase opacity-80">SmartCalc OS</span>
+          </div>
+          
+          <div className="h-4 w-px bg-white/10 hidden sm:block" />
+          
+          <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:flex">
+             <span className="hover:text-blue-400 cursor-pointer transition-colors">Calculator</span>
+             <span className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => setShowWindowSettings(true)}>Settings</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+           {/* Theme Toggle */}
+           <button 
+             onClick={() => setIsDarkMode(!isDarkMode)}
+             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-all"
+           >
+             {isDarkMode ? '☀️' : '🌙'}
+           </button>
+
+           <div className="h-4 w-px bg-white/10" />
+
+           {/* Account Section */}
+           <div className="relative">
+              {user ? (
+                <button 
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2.5 pl-1.5 pr-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 transition-all group"
+                >
+                  <img src={user.photoURL || ''} alt="Avatar" className="w-6 h-6 rounded-full border-2 border-blue-400/50 group-hover:scale-105 transition-transform" />
+                  <span className="text-[10px] font-bold text-blue-400 tracking-wider hidden sm:inline uppercase">{user.displayName?.split(' ')[0]}</span>
+                  <ChevronDown className={cn("w-3 h-3 text-blue-400/50 transition-transform", showUserMenu && "rotate-180")} />
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
+                >
+                  SIGN IN
+                </button>
+              )}
+
+              {showUserMenu && user && (
+                <div className="absolute right-0 mt-3 w-56 bg-[#1e1e2f] border border-white/5 rounded-2xl shadow-2xl z-[100] py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-5 py-3 border-b border-white/5 mb-2 bg-white/5">
+                    <p className="text-xs font-bold text-white truncate">{user.displayName}</p>
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5">{user.email}</p>
+                  </div>
+                  <button 
+                    onClick={() => { toggleSidebar('history'); setShowUserMenu(false); }}
+                    className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    USER LOGS
+                  </button>
+                  <button 
+                    onClick={() => { setShowWindowSettings(true); setShowUserMenu(false); }}
+                    className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    SYSTEM PREFS
+                  </button>
+                  <div className="h-px bg-white/5 my-2" />
+                  <button 
+                    onClick={() => { logout(); setShowUserMenu(false); }}
+                    className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-all"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    TERMINATE SESSION
+                  </button>
+                </div>
+              )}
+           </div>
+
+           {/* Time Display */}
+           <div className="h-4 w-px bg-white/10 hidden md:block" />
+           <div className="hidden md:flex flex-col items-end leading-none">
+              <span className="text-[10px] font-black text-white tracking-widest uppercase">
+                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span className="text-[8px] font-bold text-slate-500 mt-0.5">
+                {new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}
+              </span>
+           </div>
+        </div>
+      </div>
+
+      <div className={cn("flex-1 w-full flex items-center justify-center p-0 sm:p-6 md:p-8 transition-all duration-300")}>
+        <div className={cn("w-full h-full md:h-[90vh] md:min-h-[600px] flex flex-col md:flex-row gap-6 mx-auto transition-all duration-500 ease-in-out", isSidebarOpen ? "max-w-6xl" : "max-w-[420px]", !isDarkMode && "invert hue-rotate-180")}>
         
         {/* LEFT PANEL: Calculator */}
-        <div className="w-full md:w-[420px] flex-shrink-0 flex flex-col bg-[#131A2A] rounded-3xl shadow-2xl shadow-blue-900/10 border border-slate-800/60 overflow-hidden relative z-10">
+        <div className="w-full h-full md:w-[420px] md:h-auto flex-shrink-0 flex flex-col bg-[#1e1e2f] md:rounded-3xl shadow-2xl shadow-blue-900/10 border-b md:border border-slate-800/60 overflow-hidden relative z-10 transition-all duration-300">
           
           {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-800/60 flex items-center justify-between bg-[#1A2235]">
-            <div className="flex items-center gap-2 text-slate-300">
-              <Calculator className="w-5 h-5" />
-              <span className="font-semibold text-sm tracking-wide uppercase">MathEngine OS</span>
+          <div className="px-4 py-3 border-b border-slate-800/60 flex items-center justify-between bg-[#1A2235]">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-slate-300">
+                <Calculator className="w-5 h-5 text-blue-400" />
+                <span className="font-bold text-xs tracking-wide uppercase">MATHENGINE OS</span>
+              </div>
+              
+              {/* DB Status Badge */}
+              <div className={cn(
+                "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border",
+                user?.uid?.startsWith('mock_') || user?.uid?.startsWith('guest_')
+                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              )}>
+                <div className={cn("w-1 h-1 rounded-full", 
+                  user?.uid?.startsWith('mock_') || user?.uid?.startsWith('guest_') ? "bg-amber-500" : "bg-emerald-500"
+                )} />
+                {user?.uid?.startsWith('mock_') || user?.uid?.startsWith('guest_') ? "Local DB" : "Cloud Active"}
+              </div>
             </div>
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-slate-700" />
-              <div className="w-3 h-3 rounded-full bg-slate-700" />
-              <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={() => toggleSidebar('history')}
+                className={cn("text-[10px] font-bold px-2 py-1 rounded transition-colors", isSidebarOpen && activeTab === 'history' ? "bg-blue-600 text-white" : "bg-[#252538] text-slate-300 hover:bg-slate-700")}
+              >
+                📜 LOG
+              </button>
+              <button 
+                onClick={() => toggleSidebar('guide')}
+                className={cn("text-[10px] font-bold px-2 py-1 rounded transition-colors", isSidebarOpen && activeTab === 'guide' ? "bg-emerald-600 text-white" : "bg-[#252538] text-slate-300 hover:bg-slate-700")}
+              >
+                ❓ GUIDE
+              </button>
             </div>
           </div>
+          
+          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
           {/* Display */}
-          <div className="bg-[#0f1523] p-6 min-h-[140px] flex flex-col justify-end items-end relative shadow-inner">
+          <div className="bg-[#e6f0ea] p-4 pt-6 min-h-[120px] flex flex-col justify-end items-end relative shadow-inner mx-4 mt-2 mb-4 rounded border-2 border-slate-600/30">
+            {/* Top LCD Status Bar */}
+            <div className="absolute top-2 left-3 right-3 flex justify-between items-start text-[#558870] font-mono text-[10px] sm:text-xs font-bold tracking-widest opacity-90 select-none">
+              <div className="flex gap-3 items-center">
+                <span className="bg-[#558870]/10 px-1 rounded">{calcMode}</span>
+                {isShift && <span className="bg-amber-900/10 px-1 rounded text-amber-800">S</span>}
+                {isAlpha && <span className="bg-red-900/10 px-1 rounded text-red-800">A</span>}
+              </div>
+              <div className="flex gap-2">
+                <span>MATH</span>
+                <span>D</span>
+              </div>
+            </div>
+
             <div 
               ref={displayRef}
-              className="w-full overflow-x-auto overflow-y-hidden text-right whitespace-nowrap scrollbar-hide mb-2"
+              className="w-full overflow-x-auto overflow-y-hidden text-right whitespace-nowrap scrollbar-hide mb-1 mt-2"
             >
-              <div className="text-3xl sm:text-4xl font-mono text-slate-300 font-light tracking-wider min-h-[40px]">
+              <div className="text-3xl sm:text-4xl font-mono text-[#0d1f15] font-semibold tracking-wider min-h-[40px]">
                 {expression || <span className="opacity-30">0</span>}
               </div>
             </div>
-            <div className="text-2xl font-mono text-blue-400 font-semibold h-8 transition-all">
-              {result && (result === 'Error' ? <span className="text-red-400">Error</span> : `= ${result}`)}
+            <div className="text-xl font-mono text-[#558870] font-semibold h-7 transition-all">
+              {result && (result === 'Error' ? <span className="text-red-600">Error</span> : `= ${result}`)}
             </div>
           </div>
 
@@ -561,7 +1009,7 @@ export default function App() {
                   title="Click for Mode (Normal/Complex/Matrix), Shift+Click for Window Settings"
                   className="w-10 sm:w-12 h-7 sm:h-8 rounded-[8px] sm:rounded-[10px] bg-[#1E293B] hover:bg-[#273549] text-slate-300 text-[9px] sm:text-[10px] font-bold border-b-2 border-[#0F172A] shadow-md active:translate-y-0.5 transition-all">
                   MODE
-                  <div className="text-[7px] text-cyan-400 absolute -bottom-1 whitespace-nowrap">{calcMode === 'normal' ? 'STD' : calcMode === 'complex' ? 'CPLX' : 'MAT'}</div>
+                  <div className="text-[7px] text-cyan-400 absolute -bottom-1 whitespace-nowrap">{calcMode}</div>
                 </button>
                 <button onClick={handleClear} className="w-10 sm:w-12 h-7 sm:h-8 rounded-[8px] sm:rounded-[10px] bg-[#1E293B] hover:bg-[#273549] text-slate-300 text-[9px] sm:text-[10px] font-bold border-b-2 border-[#0F172A] shadow-md active:translate-y-0.5 transition-all">
                   ON
@@ -590,14 +1038,16 @@ export default function App() {
         </div>
 
         {/* RIGHT PANEL: Context / Features */}
-        <div className="flex-1 flex flex-col bg-[#131A2A]/80 backdrop-blur-xl rounded-3xl border border-slate-800/60 overflow-hidden shadow-xl">
-          
-          {/* Tabs */}
-          <div className="flex p-3 gap-2 border-b border-slate-800/60 bg-[#1A2235]/50 overflow-x-auto hide-scrollbar">
-            <button 
-              onClick={() => setActiveTab('steps')} 
-              className={cn("px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap", activeTab === 'steps' ? 'bg-blue-600/20 text-blue-400 shadow-sm border border-blue-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50')}
-            >
+        {isSidebarOpen && (
+          <div className="flex-1 flex flex-col bg-[#252538] md:rounded-3xl border-t md:border border-slate-800/60 overflow-hidden shadow-xl animate-in slide-in-from-right-8 duration-300 fixed inset-0 z-50 md:relative md:inset-auto md:z-0">
+            
+            {/* Tabs & Mobile Close */}
+            <div className="flex items-center border-b border-slate-800/60 bg-[#1e1e2f]">
+              <div className="flex-1 flex p-3 gap-2 overflow-x-auto hide-scrollbar">
+              <button 
+                onClick={() => setActiveTab('steps')} 
+                className={cn("px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap", activeTab === 'steps' ? 'bg-blue-600/20 text-blue-400 shadow-sm border border-blue-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50')}
+              >
               <BookOpen className="w-4 h-4" /> Logic Steps
             </button>
             <button 
@@ -612,7 +1062,20 @@ export default function App() {
             >
               <History className="w-4 h-4" /> History
             </button>
-          </div>
+            <button 
+              onClick={() => setActiveTab('guide')} 
+              className={cn("px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap", activeTab === 'guide' ? 'bg-cyan-600/20 text-cyan-400 shadow-sm border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50')}
+            >
+                <BookOpen className="w-4 h-4" /> Guide
+              </button>
+              </div>
+              <button 
+                onClick={() => setIsSidebarOpen(false)}
+                className="md:hidden p-4 text-slate-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
@@ -771,37 +1234,104 @@ export default function App() {
                           setExpression(item.expression);
                           setResult(item.result);
                         }}
-                        className="w-full text-left bg-[#1A2235]/50 hover:bg-[#1E293B] border border-slate-800/80 hover:border-slate-700 p-5 rounded-2xl transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                        className="w-full text-left bg-[#1A2235]/50 hover:bg-[#1E293B] border border-slate-800/80 hover:border-blue-500/30 p-5 rounded-2xl transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden"
                       >
+                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="flex-1 overflow-hidden">
-                          <div className="font-mono text-lg text-slate-300 truncate">{item.expression}</div>
-                          <div className="text-xs text-slate-500 mt-1">
-                            {new Date(item.timestamp).toLocaleTimeString()}
+                          <div className="flex items-center gap-3 mb-2">
+                             <div className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[9px] font-black text-blue-400 uppercase tracking-widest">
+                               {new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                             </div>
+                             <div className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                               {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                             </div>
                           </div>
+                          <div className="font-mono text-lg text-slate-300 truncate tracking-tight">{item.expression}</div>
                         </div>
-                        <div className="flex items-center gap-4 text-right">
-                           <div className="font-mono text-xl text-purple-400 font-semibold truncate max-w-[200px]">= {item.result}</div>
-                           <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-slate-400 transition-colors shrink-0" />
+                        <div className="flex items-center gap-4 text-right shrink-0">
+                           <div className="font-mono text-2xl text-white font-black truncate max-w-[200px]">
+                             <span className="text-blue-500 mr-2 text-sm opacity-50">=</span>
+                             {item.result}
+                           </div>
                         </div>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="h-[60%] flex flex-col items-center justify-center text-slate-500 opacity-60">
-                    <History className="w-16 h-16 mb-4 opacity-50 stroke-1" />
-                    <p className="text-lg font-medium">No history yet</p>
-                    <p className="text-sm mt-2">Your past calculations will appear here</p>
+                  <div className="h-[60%] flex flex-col items-center justify-center text-slate-500">
+                    <div className="bg-[#1A2235] p-8 rounded-3xl border border-slate-800/50 flex flex-col items-center text-center max-w-sm">
+                      <History className="w-16 h-16 mb-4 opacity-20 stroke-1" />
+                      <p className="text-lg font-medium text-slate-300">No history yet</p>
+                      <p className="text-sm mt-2 mb-6 text-slate-400">Your past calculations will appear here. {user ? "They are being saved to your account." : "Sign in to save them across all your devices."}</p>
+                      {!user && (
+                        <button 
+                          onClick={() => setIsAuthModalOpen(true)}
+                          className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20"
+                        >
+                          Sign In Now
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             )}
+
+            {/* GUIDE TAB */}
+            {activeTab === 'guide' && (
+              <div className="max-w-3xl mx-auto h-full animate-in fade-in text-slate-300 space-y-6">
+                <div className="flex justify-between items-center mb-4 px-2">
+                  <h3 className="text-xl font-semibold flex items-center gap-3 text-cyan-400">
+                    <BookOpen className="w-6 h-6" />
+                    MATHENGINE OS — USER GUIDE
+                  </h3>
+                </div>
+                <div className="bg-[#1A2235]/50 border border-slate-800/80 p-6 rounded-2xl text-sm leading-relaxed space-y-4">
+                  <div className="grid gap-6">
+                    <div>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">1. 🧮 MATH & ALGEBRA</h4>
+                      <p><strong>COMP:</strong> Regular computation.</p>
+                      <p><strong>EQN (Solver):</strong> Type <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">X^2=4</span>. Press <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">SHIFT</span> + <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">CALC</span> to find all roots.</p>
+                      <p><strong>LIMIT:</strong> Type a function like <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">sin(X)/X</span>. Press <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">EVAL</span> to calculate limits approaching a target.</p>
+                      <p><strong>BASE-N:</strong> Convert <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">DEC/HEX/BIN/OCT</span>.</p>
+                    </div>
+                    <div>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">2. 📐 ADVANCED MODES</h4>
+                      <p><strong>CMPLX:</strong> Keys swap to provide <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">i</span> (imaginary unit) and <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Arg</span>. Calculations support complex outputs.</p>
+                      <p><strong>MATRIX & VECTOR:</strong> Keys swap to show <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">MatA/VctA</span>. Supports matrix math natively.</p>
+                      <p><strong>STAT & DIST:</strong> Statistical distributions and regressional analysis tools.</p>
+                    </div>
+                    <div>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">3. ⌨️ KEYBOARD CONTROLS</h4>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-300">
+                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">0-9</span> Numbers</p>
+                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">+, -, *, /</span> Operators</p>
+                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Enter</span> Calculate (=)</p>
+                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Backspace</span> Delete</p>
+                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Esc</span> Clear (AC)</p>
+                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">S / A</span> Shift / Alpha</p>
+                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">M</span> Cycle Modes</p>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">4. 🛠️ TECHNICAL SHORTCUTS</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm text-slate-300">
+                        <li><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">ALPHA</span> + <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">CALC</span> inserts <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">=</span></li>
+                        <li><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">SHIFT</span> + <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">CALC</span> triggers the algebraic Solver</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-        
+        )}
       </div>
+    </div>
 
-      {/* VARIABLE PROMPT MODAL */}
-      {showVarPrompt && (
+    {/* VARIABLE PROMPT MODAL */}
+    {showVarPrompt && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-[#131A2A] border-2 border-red-500/50 rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4 animate-in fade-in zoom-in-95">
             <h2 className="text-2xl font-bold text-red-400 mb-6 flex items-center gap-3">
@@ -825,7 +1355,7 @@ export default function App() {
                   value={varValues[detectedVars[currentVarIndex]] || ''}
                   onChange={(e) => setVarValues({
                     ...varValues,
-                    [detectedVars[currentVarIndex]]: parseFloat(e.target.value) || 0
+                    [detectedVars[currentVarIndex]]: e.target.value
                   })}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') submitVariableValue();
@@ -874,7 +1404,6 @@ export default function App() {
           </div>
         </div>
       )}
-
       {/* WINDOW SETTINGS MODAL */}
       {showWindowSettings && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">

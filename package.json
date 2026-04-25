@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/yussef2009/smart-calc/issues"
   },
-  "homepage": "https://github.com/yussef2009/smart-calc#readme"
+  "homepage": "https://github.com/yussef2009/smart-calc#readme",
+  "dependencies": {
+    "firebase": "^12.12.1"
+  }
 }
