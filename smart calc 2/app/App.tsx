@@ -308,9 +308,17 @@ export default function App() {
   };
 
 
-  const generateExplanation = (expr: string, isGraph = false) => {
+  const generateExplanation = (expr: string, isGraph: boolean | string = false) => {
     const newSteps: Step[] = [];
     try {
+      // Handle text explanations (mode changes, etc.)
+      if (typeof isGraph === 'string') {
+        newSteps.push({ title: 'System Message', desc: expr });
+        setSteps(newSteps);
+        setError('');
+        return;
+      }
+
       const node = math.parse(expr);
       newSteps.push({ title: 'Parsed Expression', desc: node.toString() });
       
@@ -320,13 +328,6 @@ export default function App() {
          setSteps(newSteps);
          setError('');
          return;
-      }
-
-      // Handle text explanations (mode changes, etc.)
-      if (typeof isGraph === 'string') {
-        newSteps.push({ title: 'Mode Changed', desc: expr });
-        setSteps(newSteps);
-        return;
       }
       
       // Try simplification
@@ -503,7 +504,7 @@ export default function App() {
         
         setResult(resStr);
         setAns(roots[0].toString()); // Save first root to Ans
-        generateExplanation(`Solved Equation: ${expression}\nRoots Found: ${resStr}`, false);
+        generateExplanation(`Solved Equation: ${expression}\nRoots Found: ${resStr}`, 'text');
       } else {
         setResult('Error');
         setError("Could not converge on a solution. The equation may have no real roots.");
@@ -523,21 +524,22 @@ export default function App() {
     if (!expression) return;
     
     let targetStr: string | null = '0';
+    let mathExpr = expression;
     if (!expression.includes(',')) {
        targetStr = prompt('Calculate limit as variable approaches what value? (e.g. 0)');
        if (targetStr === null) return;
     } else {
        // If expression is "sin(x)/x, 0", parse it
        const parts = expression.split(',');
-       const expr = parts[0];
+       mathExpr = parts[0];
        targetStr = parts[1].trim();
     }
     
     const target = parseFloat(targetStr);
     
     try {
-      const compiled = math.compile(expression);
-      const varsInExpr = expression.match(/[A-Z]/g) || ['X'];
+      const compiled = math.compile(mathExpr);
+      const varsInExpr = mathExpr.match(/[A-Z]/g) || ['X'];
       const targetVar = varsInExpr[0];
       
       const getF = (val: number) => compiled.evaluate({ [targetVar]: val, x: val, X: val, Ans: Number(ans) || 0 });
@@ -568,7 +570,7 @@ export default function App() {
       
       if (isValid) {
         setResult(`lim = ${resStr}`);
-        generateExplanation(`Calculated Limit of ${expression} as ${targetVar} -> ${target}\nApproaching from left: ${left2.toFixed(6)}\nApproaching from right: ${right2.toFixed(6)}\nResult: ${resStr}`, false);
+        generateExplanation(`Calculated Limit of ${expression} as ${targetVar} -> ${target}\nApproaching from left: ${left2.toFixed(6)}\nApproaching from right: ${right2.toFixed(6)}\nResult: ${resStr}`, 'text');
       } else {
         setResult('Error');
         setError('Limit could not be evaluated.');
@@ -1389,7 +1391,7 @@ export default function App() {
                 onClick={() => {
                   setCalcMode(m.id as CalcMode);
                   setShowModeSelection(false);
-                  generateExplanation(`Switched to ${m.name} Mode`, false);
+                  generateExplanation(`Switched to ${m.name} Mode`, 'text');
                 }}
                 className={cn(
                   "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all group relative",
