@@ -1,7 +1,5 @@
-import React from 'react';
 import { X, Mail, LogIn } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
-import { cn } from './ui/utils'; // Assuming cn is available here or I'll use a direct import
 
 export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { signInWithGoogle } = useAuth();
@@ -13,7 +11,7 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       await signInWithGoogle();
       onClose();
     } catch (error) {
-      alert("Failed to sign in with Google. Please check your Firebase configuration.");
+      alert("Failed to sign in with Google. Please check your Supabase configuration.");
     }
   };
 

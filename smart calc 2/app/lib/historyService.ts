@@ -1,15 +1,4 @@
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs, 
-  deleteDoc, 
-  doc, 
-  limit 
-} from "firebase/firestore";
-import { db } from "./firebase";
+import { supabase } from "./supabase";
 
 export interface HistoryItem {
   id: string;
@@ -21,7 +10,7 @@ export interface HistoryItem {
 
 export const saveHistoryToFirestore = async (userId: string, item: Omit<HistoryItem, 'id' | 'userId'>) => {
   // Local storage fallback for Demo/Mock Mode or missing config
-  if (userId.startsWith('guest_') || userId.startsWith('mock_') || !db) {
+  if (userId.startsWith('guest_') || userId.startsWith('mock_')) {
     const localHistory = JSON.parse(localStorage.getItem('smart_calc_history') || '[]');
     const newItem = { id: Math.random().toString(36).substr(2, 9), ...item, userId };
     localStorage.setItem('smart_calc_history', JSON.stringify([newItem, ...localHistory].slice(0, 50)));
@@ -29,12 +18,19 @@ export const saveHistoryToFirestore = async (userId: string, item: Omit<HistoryI
   }
 
   try {
-    const docRef = await addDoc(collection(db!, "history"), {
-      ...item,
-      userId,
-      timestamp: Date.now()
-    });
-    return docRef.id;
+    const { data, error } = await supabase
+      .from('history')
+      .insert([
+        {
+          ...item,
+          userId,
+          timestamp: new Date().toISOString() // Supabase works best with ISO strings or timestamptz
+        }
+      ])
+      .select();
+
+    if (error) throw error;
+    return data?.[0]?.id;
   } catch (error) {
     console.error("Error adding document: ", error);
     return null;
@@ -42,24 +38,26 @@ export const saveHistoryToFirestore = async (userId: string, item: Omit<HistoryI
 };
 
 export const fetchHistoryFromFirestore = async (userId: string) => {
-  if (userId.startsWith('guest_') || userId.startsWith('mock_') || !db) {
+  if (userId.startsWith('guest_') || userId.startsWith('mock_')) {
     const localHistory = JSON.parse(localStorage.getItem('smart_calc_history') || '[]');
     return localHistory.filter((h: any) => h.userId === userId);
   }
 
   try {
-    const q = query(
-      collection(db!, "history"),
-      where("userId", "==", userId),
-      orderBy("timestamp", "desc"),
-      limit(50)
-    );
-    const querySnapshot = await getDocs(q);
-    const history: HistoryItem[] = [];
-    querySnapshot.forEach((doc) => {
-      history.push({ id: doc.id, ...doc.data() } as HistoryItem);
-    });
-    return history;
+    const { data, error } = await supabase
+      .from('history')
+      .select('*')
+      .eq('userId', userId)
+      .order('timestamp', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    
+    // Map data to match HistoryItem interface if needed
+    return (data || []).map(item => ({
+        ...item,
+        timestamp: new Date(item.timestamp).getTime()
+    })) as HistoryItem[];
   } catch (error) {
     console.error("Error fetching history: ", error);
     return [];
@@ -67,16 +65,19 @@ export const fetchHistoryFromFirestore = async (userId: string) => {
 };
 
 export const clearUserHistory = async (userId: string) => {
-    if (userId.startsWith('guest_') || userId.startsWith('mock_') || !db) {
+    if (userId.startsWith('guest_') || userId.startsWith('mock_')) {
         localStorage.removeItem('smart_calc_history');
         return;
     }
     try {
-        const q = query(collection(db!, "history"), where("userId", "==", userId));
-        const querySnapshot = await getDocs(q);
-        const deletePromises = querySnapshot.docs.map(d => deleteDoc(doc(db!, "history", d.id)));
-        await Promise.all(deletePromises);
+        const { error } = await supabase
+            .from('history')
+            .delete()
+            .eq('userId', userId);
+        
+        if (error) throw error;
     } catch (error) {
         console.error("Error clearing history: ", error);
     }
 }
+

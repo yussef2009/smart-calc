@@ -254,6 +254,8 @@ def calculate_optimal_domain(expr: str, var: str = 'x', initial_bounds: Tuple[fl
 
 
 
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application, convert_xor
+
 def parse_expression(expr: str) -> sp.Expr:
     """Parse a string into a sympy expression using safe locals.
 
@@ -268,7 +270,10 @@ def parse_expression(expr: str) -> sp.Expr:
     if 'Π' in expr or 'product(' in expr or 'prod(' in expr:
         locals_copy['product'] = lambda *args: sp.prod([args])
     
-    return sp.sympify(expr, locals=locals_copy, transformations='all')
+    # Use standard transformations plus implicit multiplication and XOR (^) as power
+    transformations = (standard_transformations + (implicit_multiplication_application, convert_xor))
+    
+    return parse_expr(expr, local_dict=locals_copy, transformations=transformations)
 
 
 def evaluate(expr: str, variables: Optional[Dict[str, float]] = None) -> Tuple[Any, str]:

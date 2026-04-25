@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as math from 'mathjs';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine 
 } from 'recharts';
 import { 
-  Activity, Calculator, History, Check, X, Code, 
+  Activity, Calculator, History, Check, X, 
   Terminal, BookOpen, Settings, AlertCircle, 
-  ChevronRight, Trash2, ChevronDown, ChevronUp, Layers,
-  User as UserIcon, LogOut, LogIn
+  Trash2, ChevronDown, Layers,
+  LogOut
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { AuthProvider, useAuth } from './lib/AuthContext';
+import { useAuth } from './lib/AuthContext';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { saveHistoryToFirestore, fetchHistoryFromFirestore } from './lib/historyService';
@@ -89,6 +89,7 @@ export default function App() {
     yMax: 10
   });
   const [showWindowSettings, setShowWindowSettings] = useState(false);
+  const [showModeSelection, setShowModeSelection] = useState(false);
   const [tempWindowSettings, setTempWindowSettings] = useState<WindowSettings>(windowSettings);
   
   // Auth state
@@ -118,7 +119,7 @@ export default function App() {
     loadHistory();
   }, [user]);
 
-  const analyzeError = (err: any, expr: string) => {
+  const analyzeError = (err: any) => {
     const msg = err.message || err.toString();
     if (msg.includes('Unexpected end of expression')) {
       return "It looks like the equation is incomplete. Are you missing a closing parenthesis or a number at the end?";
@@ -187,8 +188,34 @@ export default function App() {
         // Add complex number support
         i: math.complex(0, 1),
       };
-      const res = math.evaluate(expr, scope);
-      const formatRes = typeof res === 'number' ? Number(res.toFixed(10)).toString() : math.format(res, { precision: 14 });
+
+      // Handle Matrix/Vector definitions if they look like [1,2;3,4]
+      let processedExpr = expr;
+      if (processedExpr.includes('Mat') || processedExpr.includes('Vct')) {
+        // Simple mock mapping for MatA, MatB, etc.
+        // In a real Casio, these are stored variables. We'll support literal entry for now.
+        // processedExpr = processedExpr.replace(/MatA/g, '[[1,2],[3,4]]');
+      }
+
+      let res = math.evaluate(processedExpr, scope);
+
+      // Handle Base-N conversions if requested
+      if (calcMode === 'BASE-N') {
+        if (processedExpr.endsWith('bin')) {
+           const val = typeof res === 'number' ? res : math.evaluate(processedExpr.replace('bin', ''), scope);
+           res = '0b' + val.toString(2);
+        } else if (processedExpr.endsWith('hex')) {
+           const val = typeof res === 'number' ? res : math.evaluate(processedExpr.replace('hex', ''), scope);
+           res = '0x' + val.toString(16).toUpperCase();
+        } else if (processedExpr.endsWith('oct')) {
+           const val = typeof res === 'number' ? res : math.evaluate(processedExpr.replace('oct', ''), scope);
+           res = '0o' + val.toString(8);
+        }
+      }
+
+      const formatRes = typeof res === 'number' 
+        ? Number(res.toFixed(10)).toString() 
+        : (typeof res === 'string' ? res : math.format(res, { precision: 14 }));
       
       setResult(formatRes);
       setAns(formatRes);
@@ -214,7 +241,7 @@ export default function App() {
       setIsSidebarOpen(true);
     } catch(err: any) {
       setResult('Error');
-      setError(analyzeError(err, expr));
+      setError(analyzeError(err));
       generateExplanation(expr, false);
       setActiveTab('steps');
       setIsSidebarOpen(true);
@@ -259,28 +286,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [expression, isShift, isAlpha, calcMode]);
 
-  // Handle MODE button - cycle through calculator modes
+  // Handle MODE button - show selection table
   const handleModeButton = () => {
-    const modes: CalcMode[] = ['COMP', 'CMPLX', 'BASE-N', 'MATRIX', 'VECTOR', 'STAT', 'EQN', 'TABLE', 'DIST', 'LIMIT'];
-    const currentIndex = modes.indexOf(calcMode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-    setCalcMode(nextMode);
-    
-    // Show mode indicator
-    let modeIndicator = '';
-    switch(nextMode) {
-      case 'COMP': modeIndicator = 'COMP: Standard Computation'; break;
-      case 'CMPLX': modeIndicator = 'CMPLX: Complex Numbers (use i)'; break;
-      case 'BASE-N': modeIndicator = 'BASE-N: Base-N Calculations'; break;
-      case 'MATRIX': modeIndicator = 'MATRIX: Matrix Operations'; break;
-      case 'VECTOR': modeIndicator = 'VECTOR: Vector Operations'; break;
-      case 'STAT': modeIndicator = 'STAT: Statistics & Regression'; break;
-      case 'EQN': modeIndicator = 'EQN: Equation Solver'; break;
-      case 'TABLE': modeIndicator = 'TABLE: Function Graphing/Table'; break;
-      case 'DIST': modeIndicator = 'DIST: Statistical Distribution'; break;
-      case 'LIMIT': modeIndicator = 'LIMIT: Limit Calculator'; break;
-    }
-    generateExplanation(`Mode Changed to ${modeIndicator}`, false);
+    setShowModeSelection(true);
   };
 
   // Handle Shift+MODE - open window settings
@@ -321,15 +329,12 @@ export default function App() {
         return;
       }
       
-      let current = expr;
-      
       // Try simplification
       try {
         const simplified = math.simplify(expr).toString();
         // Simple check to see if it actually simplified it visually
         if (simplified.replace(/\s/g, '') !== expr.replace(/\s/g, '')) {
           newSteps.push({ title: 'Simplified Form', desc: simplified });
-          current = simplified;
         }
       } catch(e) {
           // Ignore simplification errors
@@ -350,7 +355,7 @@ export default function App() {
       setError('');
     } catch (err: any) {
       setSteps([]);
-      setError(analyzeError(err, expr));
+      setError(analyzeError(err));
     }
   };
 
@@ -405,7 +410,7 @@ export default function App() {
       generateExplanation(targetExpr, true);
     } catch (err: any) {
       setGraphData([]);
-      setError(`Cannot plot function: ${analyzeError(err, targetExpr)}`);
+      setError(`Cannot plot function: ${analyzeError(err)}`);
       setActiveTab('steps');
     }
     setIsSidebarOpen(true);
@@ -507,7 +512,7 @@ export default function App() {
       setIsSidebarOpen(true);
     } catch(err: any) {
       setResult('Error');
-      setError(`Cannot solve: ${analyzeError(err, expression)}`);
+      setError(`Cannot solve: ${analyzeError(err)}`);
       setActiveTab('steps');
       setIsSidebarOpen(true);
     }
@@ -517,14 +522,18 @@ export default function App() {
   const handleLimit = () => {
     if (!expression) return;
     
-    const targetStr = prompt('Calculate limit as variable approaches what value? (e.g. 0)');
-    if (targetStr === null) return;
-    const target = parseFloat(targetStr);
-    
-    if (isNaN(target)) {
-      setError('Invalid limit target.');
-      return;
+    let targetStr: string | null = '0';
+    if (!expression.includes(',')) {
+       targetStr = prompt('Calculate limit as variable approaches what value? (e.g. 0)');
+       if (targetStr === null) return;
+    } else {
+       // If expression is "sin(x)/x, 0", parse it
+       const parts = expression.split(',');
+       const expr = parts[0];
+       targetStr = parts[1].trim();
     }
+    
+    const target = parseFloat(targetStr);
     
     try {
       const compiled = math.compile(expression);
@@ -533,12 +542,9 @@ export default function App() {
       
       const getF = (val: number) => compiled.evaluate({ [targetVar]: val, x: val, X: val, Ans: Number(ans) || 0 });
       
-      const h1 = 1e-7;
       const h2 = 1e-9;
       
-      const left1 = getF(target - h1);
       const left2 = getF(target - h2);
-      const right1 = getF(target + h1);
       const right2 = getF(target + h2);
       
       let resStr = '';
@@ -571,7 +577,7 @@ export default function App() {
       setIsSidebarOpen(true);
     } catch(err: any) {
       setResult('Error');
-      setError(`Cannot evaluate limit: ${analyzeError(err, expression)}`);
+      setError(`Cannot evaluate limit: ${analyzeError(err)}`);
       setActiveTab('steps');
       setIsSidebarOpen(true);
     }
@@ -666,8 +672,8 @@ export default function App() {
       currentRows[1][4] = { label: 'Arg', val: 'arg(', shiftLabel: 'Conjg', alphaLabel: 'D' };
     } else if (mode === 'BASE-N') {
       currentRows[2] = [...currentRows[2]];
-      currentRows[2][2] = { label: 'DEC', val: 'dec', shiftLabel: 'HEX', alphaLabel: 'C' };
-      currentRows[2][3] = { label: 'BIN', val: 'bin', shiftLabel: 'OCT', alphaLabel: 'D' };
+      currentRows[2][2] = { label: 'DEC', action: () => handleAppend('dec'), shiftLabel: 'HEX', shiftAction: () => handleAppend('hex') };
+      currentRows[2][3] = { label: 'BIN', action: () => handleAppend('bin'), shiftLabel: 'OCT', shiftAction: () => handleAppend('oct') };
     } else if (mode === 'MATRIX') {
       currentRows[3] = [...currentRows[3]];
       currentRows[3][0] = { label: 'MatA', val: 'MatA', shiftLabel: 'Det' };
@@ -1289,35 +1295,53 @@ export default function App() {
                 <div className="bg-[#1A2235]/50 border border-slate-800/80 p-6 rounded-2xl text-sm leading-relaxed space-y-4">
                   <div className="grid gap-6">
                     <div>
-                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">1. 🧮 MATH & ALGEBRA</h4>
-                      <p><strong>COMP:</strong> Regular computation.</p>
-                      <p><strong>EQN (Solver):</strong> Type <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">X^2=4</span>. Press <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">SHIFT</span> + <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">CALC</span> to find all roots.</p>
-                      <p><strong>LIMIT:</strong> Type a function like <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">sin(X)/X</span>. Press <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">EVAL</span> to calculate limits approaching a target.</p>
-                      <p><strong>BASE-N:</strong> Convert <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">DEC/HEX/BIN/OCT</span>.</p>
-                    </div>
-                    <div>
-                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">2. 📐 ADVANCED MODES</h4>
-                      <p><strong>CMPLX:</strong> Keys swap to provide <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">i</span> (imaginary unit) and <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Arg</span>. Calculations support complex outputs.</p>
-                      <p><strong>MATRIX & VECTOR:</strong> Keys swap to show <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">MatA/VctA</span>. Supports matrix math natively.</p>
-                      <p><strong>STAT & DIST:</strong> Statistical distributions and regressional analysis tools.</p>
-                    </div>
-                    <div>
-                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">3. ⌨️ KEYBOARD CONTROLS</h4>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-300">
-                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">0-9</span> Numbers</p>
-                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">+, -, *, /</span> Operators</p>
-                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Enter</span> Calculate (=)</p>
-                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Backspace</span> Delete</p>
-                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">Esc</span> Clear (AC)</p>
-                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">S / A</span> Shift / Alpha</p>
-                        <p><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">M</span> Cycle Modes</p>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">1. 🧮 CALCULATION MODES</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
+                          <p className="font-bold text-blue-400 mb-1">COMP / CMPLX</p>
+                          <p className="text-xs text-slate-400">Standard math and complex numbers. Use 'i' for imaginary parts.</p>
+                        </div>
+                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
+                          <p className="font-bold text-emerald-400 mb-1">TABLE / GRAPH</p>
+                          <p className="text-xs text-slate-400">Plot functions like 'sin(x)'. Use 'Plot' button to visualize.</p>
+                        </div>
+                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
+                          <p className="font-bold text-amber-400 mb-1">EQN / SOLVE</p>
+                          <p className="text-xs text-slate-400">Find roots for equations like 'X^2=4' using SHIFT + CALC.</p>
+                        </div>
+                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
+                          <p className="font-bold text-purple-400 mb-1">MATRIX / VECTOR</p>
+                          <p className="text-xs text-slate-400">Perform linear algebra operations with dedicated keys.</p>
+                        </div>
+                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
+                          <p className="font-bold text-cyan-400 mb-1">LIMIT / DIST</p>
+                          <p className="text-xs text-slate-400">Numerical limits and statistical distributions.</p>
+                        </div>
+                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
+                          <p className="font-bold text-red-400 mb-1">BASE-N</p>
+                          <p className="text-xs text-slate-400">Convert and calculate in Binary, Hex, and Octal.</p>
+                        </div>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">4. 🛠️ TECHNICAL SHORTCUTS</h4>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">2. ⌨️ KEYBOARD SHORTCUTS</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">0-9</span> Numbers</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">+, -, *, /</span> Ops</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Enter</span> =</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Bksp</span> Del</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Esc</span> AC</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">S / A</span> Shift/Alpha</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">M</span> Mode Table</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">^</span> Power</div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">3. 🛠️ ADVANCED USAGE</h4>
                       <ul className="list-disc pl-5 space-y-1 text-sm text-slate-300">
-                        <li><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">ALPHA</span> + <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">CALC</span> inserts <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">=</span></li>
-                        <li><span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">SHIFT</span> + <span className="text-yellow-200 bg-yellow-900/30 px-1 rounded">CALC</span> triggers the algebraic Solver</li>
+                        <li><strong>Variable Substitution:</strong> Press <span className="text-red-400">ALPHA</span> before <span className="text-blue-400">=</span> to enter values for A-F, X, Y.</li>
+                        <li><strong>Cloud Sync:</strong> Sign in to sync your calculation logs across devices.</li>
+                        <li><strong>Auto-Domain:</strong> The graph viewer intelligently adjusts bounds for trig and log functions.</li>
                       </ul>
                     </div>
                   </div>
@@ -1329,6 +1353,75 @@ export default function App() {
         )}
       </div>
     </div>
+
+    {/* MODE SELECTION MODAL */}
+    {showModeSelection && (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] backdrop-blur-md">
+        <div className="bg-[#1e1e2f] border border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-2xl w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-black text-white tracking-widest uppercase flex items-center gap-3">
+              <Layers className="w-6 h-6 text-blue-400" />
+              Select Mode
+            </h2>
+            <button 
+              onClick={() => setShowModeSelection(false)}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-8">
+            {[
+              { id: 'COMP', label: '1', name: 'COMP' },
+              { id: 'CMPLX', label: '2', name: 'CMPLX' },
+              { id: 'STAT', label: '3', name: 'STAT' },
+              { id: 'BASE-N', label: '4', name: 'BASE-N' },
+              { id: 'EQN', label: '5', name: 'EQN' },
+              { id: 'MATRIX', label: '6', name: 'MATRIX' },
+              { id: 'TABLE', label: '7', name: 'TABLE' },
+              { id: 'VECTOR', label: '8', name: 'VECTOR' },
+              { id: 'DIST', label: '9', name: 'DIST' },
+              { id: 'LIMIT', label: '0', name: 'LIMIT' },
+            ].map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setCalcMode(m.id as CalcMode);
+                  setShowModeSelection(false);
+                  generateExplanation(`Switched to ${m.name} Mode`, false);
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all group relative",
+                  calcMode === m.id 
+                    ? "bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-500/10" 
+                    : "bg-[#161625] border-white/5 hover:border-white/20"
+                )}
+              >
+                <span className={cn(
+                  "text-[10px] font-black absolute top-2 right-3",
+                  calcMode === m.id ? "text-blue-400" : "text-slate-600"
+                )}>{m.label}</span>
+                <span className={cn(
+                  "text-[11px] font-black tracking-tighter transition-colors",
+                  calcMode === m.id ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                )}>{m.name}</span>
+                <div className={cn(
+                  "w-1 h-1 rounded-full transition-all",
+                  calcMode === m.id ? "bg-blue-500 scale-150" : "bg-slate-800 scale-100"
+                )} />
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-blue-600/5 rounded-2xl p-4 border border-blue-500/10">
+            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest text-center">
+              Current active mode: <span className="text-white ml-2">{calcMode}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* VARIABLE PROMPT MODAL */}
     {showVarPrompt && (

@@ -8,7 +8,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import sympy as sp
 
-from calculator import calculate_optimal_domain, find_roots_and_extrema
+from .calculator import calculate_optimal_domain, find_roots_and_extrema
 
 
 def plot_expression(
