@@ -117,7 +117,7 @@ if npm run dev doesn't work try press F5 or debugging button
 This will:
 - Start the Vite dev server
 - Open your default browser automatically
-- Serve the app at **http://localhost:5173/**
+- Serve the app at **https://smart-calc-rho.vercel.app/?authuser=1**
 
 ⚠️ **Important**: Do NOT open `index.html` via VS Code webview or `file://` protocol. The app must be loaded from the HTTP dev server.
 
