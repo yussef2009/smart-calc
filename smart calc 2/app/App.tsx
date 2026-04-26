@@ -526,7 +526,7 @@ export default function App() {
     let targetStr: string | null = '0';
     let mathExpr = expression;
     if (!expression.includes(',')) {
-       targetStr = prompt('Calculate limit as variable approaches what value? (e.g. 0)');
+       targetStr = prompt('Calculate limit as variable approaches what value? (e.g. 0, Infinity, pi)');
        if (targetStr === null) return;
     } else {
        // If expression is "sin(x)/x, 0", parse it
@@ -535,42 +535,106 @@ export default function App() {
        targetStr = parts[1].trim();
     }
     
-    const target = parseFloat(targetStr);
+    let target: number;
+    try {
+      target = Number(math.evaluate(targetStr));
+    } catch {
+      target = parseFloat(targetStr);
+    }
     
     try {
       const compiled = math.compile(mathExpr);
-      const varsInExpr = mathExpr.match(/[A-Z]/g) || ['X'];
-      const targetVar = varsInExpr[0];
+      // Try to find a variable name, default to 'x'
+      const targetVarMatch = mathExpr.match(/\b([a-zA-Z])\b/);
+      const targetVar = targetVarMatch ? targetVarMatch[1] : 'x';
       
-      const getF = (val: number) => compiled.evaluate({ [targetVar]: val, x: val, X: val, Ans: Number(ans) || 0 });
-      
-      const h2 = 1e-9;
-      
-      const left2 = getF(target - h2);
-      const right2 = getF(target + h2);
+      const getF = (val: number) => {
+        try {
+          const res = compiled.evaluate({ [targetVar]: val, x: val, X: val, Ans: Number(ans) || 0 });
+          if (math.typeOf(res) === 'Complex') {
+            if (Math.abs(res.im) > 1e-10) return NaN;
+            return res.re;
+          }
+          return Number(res);
+        } catch {
+          return NaN;
+        }
+      };
       
       let resStr = '';
       let isValid = false;
+      let explanation = '';
       
-      // If it approaches infinity
-      if (Math.abs(left2) > 1e10 && Math.abs(right2) > 1e10) {
-        resStr = left2 * right2 > 0 ? (left2 > 0 ? '+∞' : '-∞') : 'Undefined (diverges)';
-        isValid = true;
-      } else {
-        const diff = Math.abs(left2 - right2);
-        if (diff < 1e-3) {
-          const avg = (left2 + right2) / 2;
-          resStr = Number(avg.toFixed(6)).toString();
+      if (!isFinite(target)) {
+        const sign = target > 0 ? 1 : -1;
+        const v1 = getF(sign * 1e5);
+        const v2 = getF(sign * 1e6);
+        const v3 = getF(sign * 1e7);
+        
+        if (isNaN(v3)) {
+          resStr = 'Undefined';
           isValid = true;
+          explanation = `Function is undefined at large values.`;
+        } else if (Math.abs(v3) > 1e10) {
+           resStr = v3 > 0 || v2 > v1 ? '+∞' : '-∞';
+           isValid = true;
+           explanation = `Evaluated at large values: f(1e6) ≈ ${v2.toExponential(2)}, f(1e7) ≈ ${v3.toExponential(2)}\nDiverges to ${resStr}`;
+        } else if (Math.abs(v3 - v2) < 1e-3) {
+           resStr = Number(v3.toFixed(6)).toString();
+           isValid = true;
+           explanation = `Evaluated at large values: f(1e6) ≈ ${v2.toFixed(6)}, f(1e7) ≈ ${v3.toFixed(6)}\nConverges to ${resStr}`;
         } else {
-          resStr = 'Undefined (left/right bounds do not match)';
-          isValid = true;
+           resStr = 'Undefined (oscillates)';
+           isValid = true;
+           explanation = `Function does not converge at ${target > 0 ? '+∞' : '-∞'}.`;
+        }
+      } else {
+        const h = 1e-7;
+        const left = getF(target - h);
+        const right = getF(target + h);
+        
+        if (isNaN(left) || isNaN(right)) {
+           // Maybe one-sided limit exists
+           if (!isNaN(right)) {
+             resStr = Number(right.toFixed(6)).toString();
+             isValid = true;
+             explanation = `Left side undefined.\nRight side limit: ${right.toFixed(6)}`;
+           } else if (!isNaN(left)) {
+             resStr = Number(left.toFixed(6)).toString();
+             isValid = true;
+             explanation = `Right side undefined.\nLeft side limit: ${left.toFixed(6)}`;
+           } else {
+             resStr = 'Undefined';
+             isValid = true;
+             explanation = `Function undefined near ${target}.`;
+           }
+        } else if (Math.abs(left) > 1e7 && Math.abs(right) > 1e7) {
+           if (left * right > 0) {
+              resStr = left > 0 ? '+∞' : '-∞';
+              isValid = true;
+           } else {
+              resStr = 'Undefined (diverges to opposite signs)';
+              isValid = true;
+           }
+           explanation = `Approaching from left: ${left > 0 ? '+∞' : '-∞'}\nApproaching from right: ${right > 0 ? '+∞' : '-∞'}`;
+        } else {
+           const diff = Math.abs(left - right);
+           if (diff < 1e-2) {
+             const avg = (left + right) / 2;
+             resStr = Number(avg.toFixed(6)).toString();
+             isValid = true;
+             explanation = `Approaching from left: ${left.toFixed(6)}\nApproaching from right: ${right.toFixed(6)}\nResult: ${resStr}`;
+           } else {
+             resStr = 'Undefined (limits do not match)';
+             isValid = true;
+             explanation = `Approaching from left: ${left.toFixed(6)}\nApproaching from right: ${right.toFixed(6)}\nLimits are unequal.`;
+           }
         }
       }
       
       if (isValid) {
         setResult(`lim = ${resStr}`);
-        generateExplanation(`Calculated Limit of ${expression} as ${targetVar} -> ${target}\nApproaching from left: ${left2.toFixed(6)}\nApproaching from right: ${right2.toFixed(6)}\nResult: ${resStr}`, 'text');
+        generateExplanation(`Calculated Limit of ${mathExpr} as ${targetVar} -> ${targetStr}\n${explanation}`, 'text');
       } else {
         setResult('Error');
         setError('Limit could not be evaluated.');
@@ -704,7 +768,7 @@ export default function App() {
       currentRows[0] = [...currentRows[0]];
       // Replace CALC with EVAL LIM
       currentRows[0][0] = { label: 'EVAL', action: handleLimit, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' };
-      currentRows[0][1] = { label: 'lim→', action: handleLimit };
+      currentRows[0][1] = { label: 'lim→', action: () => handleAppend(', ') };
       currentRows[0][2] = { label: '∞', val: 'Infinity' };
     }
 
