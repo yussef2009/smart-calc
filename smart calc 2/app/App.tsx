@@ -808,7 +808,7 @@ export default function App() {
   }
 
   return (
-    <div className={cn("min-h-screen font-sans selection:bg-blue-500/30 flex flex-col items-center transition-all duration-300", isDarkMode ? "bg-[#0f172a] text-slate-200" : "bg-slate-200 text-slate-800")}>
+    <div className={cn("min-h-[100dvh] font-sans selection:bg-blue-500/30 flex flex-col items-center transition-all duration-300", isDarkMode ? "bg-[#0f172a] text-slate-200" : "bg-slate-200 text-slate-800")}>
       
       {/* SYSTEM TOP BAR */}
       <div className="w-full h-12 bg-[#1A2235]/80 backdrop-blur-md border-b border-white/5 px-6 flex items-center justify-between z-[100] sticky top-0 shadow-xl">
@@ -904,11 +904,11 @@ export default function App() {
         </div>
       </div>
 
-      <div className={cn("flex-1 w-full flex items-center justify-center p-0 sm:p-6 md:p-8 transition-all duration-300")}>
-        <div className={cn("w-full h-full md:h-[90vh] md:min-h-[600px] flex flex-col md:flex-row gap-6 mx-auto transition-all duration-500 ease-in-out", isSidebarOpen ? "max-w-6xl" : "max-w-[420px]", !isDarkMode && "invert hue-rotate-180")}>
+      <div className={cn("flex-1 w-full flex flex-col p-0 sm:p-6 md:p-8 transition-all duration-300")}>
+        <div className={cn("w-full flex-1 md:h-[90vh] md:min-h-[600px] flex flex-col md:flex-row gap-6 mx-auto transition-all duration-500 ease-in-out", isSidebarOpen ? "max-w-6xl" : "max-w-[420px]", !isDarkMode && "invert hue-rotate-180")}>
         
         {/* LEFT PANEL: Calculator */}
-        <div className="w-full h-full md:w-[420px] md:h-auto flex-shrink-0 flex flex-col bg-[#1e1e2f] md:rounded-3xl shadow-2xl shadow-blue-900/10 border-b md:border border-slate-800/60 overflow-hidden relative z-10 transition-all duration-300">
+        <div className="w-full flex-1 md:w-[420px] md:h-auto flex-shrink-0 flex flex-col bg-[#1e1e2f] md:rounded-3xl shadow-2xl shadow-blue-900/10 border-b md:border border-slate-800/60 overflow-hidden relative z-10 transition-all duration-300">
           
           {/* Header */}
           <div className="px-4 py-3 border-b border-slate-800/60 flex items-center justify-between bg-[#1A2235]">
@@ -1294,58 +1294,110 @@ export default function App() {
                     MATHENGINE OS — USER GUIDE
                   </h3>
                 </div>
+                
+                {/* General Guide */}
                 <div className="bg-[#1A2235]/50 border border-slate-800/80 p-6 rounded-2xl text-sm leading-relaxed space-y-4">
+                  <h4 className="text-cyan-400 font-bold mb-2 text-lg border-b border-slate-700 pb-2">📚 General Calculator Guide</h4>
                   <div className="grid gap-6">
                     <div>
-                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">1. 🧮 CALCULATION MODES</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
-                          <p className="font-bold text-blue-400 mb-1">COMP / CMPLX</p>
-                          <p className="text-xs text-slate-400">Standard math and complex numbers. Use 'i' for imaginary parts.</p>
-                        </div>
-                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
-                          <p className="font-bold text-emerald-400 mb-1">TABLE / GRAPH</p>
-                          <p className="text-xs text-slate-400">Plot functions like 'sin(x)'. Use 'Plot' button to visualize.</p>
-                        </div>
-                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
-                          <p className="font-bold text-amber-400 mb-1">EQN / SOLVE</p>
-                          <p className="text-xs text-slate-400">Find roots for equations like 'X^2=4' using SHIFT + CALC.</p>
-                        </div>
-                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
-                          <p className="font-bold text-purple-400 mb-1">MATRIX / VECTOR</p>
-                          <p className="text-xs text-slate-400">Perform linear algebra operations with dedicated keys.</p>
-                        </div>
-                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
-                          <p className="font-bold text-cyan-400 mb-1">LIMIT / DIST</p>
-                          <p className="text-xs text-slate-400">Numerical limits and statistical distributions.</p>
-                        </div>
-                        <div className="bg-slate-800/30 p-3 rounded-xl border border-white/5">
-                          <p className="font-bold text-red-400 mb-1">BASE-N</p>
-                          <p className="text-xs text-slate-400">Convert and calculate in Binary, Hex, and Octal.</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">2. ⌨️ KEYBOARD SHORTCUTS</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700/50 pb-1">1. ⌨️ Keyboard Shortcuts</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mt-3">
                         <div className="flex flex-col gap-1"><span className="text-yellow-200">0-9</span> Numbers</div>
-                        <div className="flex flex-col gap-1"><span className="text-yellow-200">+, -, *, /</span> Ops</div>
-                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Enter</span> =</div>
-                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Bksp</span> Del</div>
-                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Esc</span> AC</div>
-                        <div className="flex flex-col gap-1"><span className="text-yellow-200">S / A</span> Shift/Alpha</div>
-                        <div className="flex flex-col gap-1"><span className="text-yellow-200">M</span> Mode Table</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">+, -, *, /</span> Operators</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Enter</span> Calculate (=)</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Bksp</span> Delete</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">Esc</span> Clear All (AC)</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">S / A</span> Shift / Alpha Toggle</div>
+                        <div className="flex flex-col gap-1"><span className="text-yellow-200">M</span> Mode Menu</div>
                         <div className="flex flex-col gap-1"><span className="text-yellow-200">^</span> Power</div>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700 pb-1">3. 🛠️ ADVANCED USAGE</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm text-slate-300">
-                        <li><strong>Variable Substitution:</strong> Press <span className="text-red-400">ALPHA</span> before <span className="text-blue-400">=</span> to enter values for A-F, X, Y.</li>
-                        <li><strong>Cloud Sync:</strong> Sign in to sync your calculation logs across devices.</li>
-                        <li><strong>Auto-Domain:</strong> The graph viewer intelligently adjusts bounds for trig and log functions.</li>
+                      <h4 className="text-emerald-400 font-bold mb-2 text-base border-b border-slate-700/50 pb-1">2. 🛠️ Advanced Features</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm text-slate-300 mt-3">
+                        <li><strong>Variable Substitution:</strong> Press <span className="text-red-400">ALPHA</span> before clicking <span className="text-blue-400">=</span> to enter values for A-F, X, Y, M.</li>
+                        <li><strong>Cloud Sync:</strong> Sign in to securely sync your calculation history across devices.</li>
+                        <li><strong>Graph Settings:</strong> Press <span className="text-amber-500">SHIFT</span> then <span className="text-slate-300">MODE</span> to configure the window bounds for the graph viewer.</li>
                       </ul>
                     </div>
+                  </div>
+                </div>
+
+                {/* Mode Specific Guides */}
+                <div className="bg-[#1A2235]/50 border border-slate-800/80 p-6 rounded-2xl text-sm leading-relaxed space-y-4">
+                  <h4 className="text-blue-400 font-bold mb-2 text-lg border-b border-slate-700 pb-2">🧮 Mode-Specific Guides</h4>
+                  <p className="text-slate-400 mb-4">Click on a mode to learn how to use it.</p>
+                  
+                  <div className="space-y-3">
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-blue-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">COMP (Standard)</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Perform basic arithmetic, trigonometric, and logarithmic calculations. Supports parentheses and variable assignments. Use the main keypad for standard operations.
+                      </div>
+                    </details>
+                    
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-purple-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">CMPLX (Complex)</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Work with complex numbers. Press the <span className="text-yellow-200">i</span> button to enter the imaginary unit. Use <span className="text-yellow-200">Arg</span> to find the argument of a complex number. Example: <code className="bg-slate-800 px-1 rounded text-cyan-300">2 + 3i</code>.
+                      </div>
+                    </details>
+                    
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-red-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">BASE-N</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Perform calculations in different number bases (Binary, Octal, Decimal, Hexadecimal). Use the DEC, HEX, BIN, and OCT keys to format the output. Add suffixes like <code>hex</code> or <code>bin</code> to your expression to convert bases.
+                      </div>
+                    </details>
+                    
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-emerald-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">MATRIX</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Evaluate matrix operations. Use MatA, MatB keys. You can also input matrices directly using array syntax e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">[[1,2],[3,4]]</code>. Functions like Determinant (Det) and Transpose (Trn) are available via SHIFT.
+                      </div>
+                    </details>
+
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-teal-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">VECTOR</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Calculate dot products, cross products, and vector arithmetic. Similar to matrix mode, you can input vectors as arrays e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">[1, 2, 3]</code>. Use Dot and Cross from the SHIFT menu.
+                      </div>
+                    </details>
+                    
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-pink-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">STAT</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Perform statistical calculations. Use the 1-VAR or A+BX keys to initialize statistical data entry (currently evaluates as standard function strings).
+                      </div>
+                    </details>
+
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-amber-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">EQN (Equation)</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Solve algebraic equations. Type an equation using the <span className="text-red-400">ALPHA</span> = sign, like <code className="bg-slate-800 px-1 rounded text-cyan-300">X^2=4</code>, then press <span className="text-blue-400">=</span> or SHIFT + SOLVE. The calculator uses numerical methods to find roots.
+                      </div>
+                    </details>
+                    
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-lime-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">TABLE / GRAPH</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Define functions f(x) and g(x). To plot, enter an expression with 'X' (e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">sin(X)</code>) and press ALPHA + Plot. The interactive graph viewer will display the result over the defined window.
+                      </div>
+                    </details>
+                    
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-cyan-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">DIST</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Calculate statistical distributions such as Normal (normPD) and Binomial (binomPD). Provide arguments as specified by math.js library.
+                      </div>
+                    </details>
+                    
+                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                      <summary className="font-bold text-indigo-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">LIMIT</summary>
+                      <div className="p-4 pt-0 text-slate-300 text-sm">
+                        Evaluate mathematical limits. Enter an expression, then press EVAL (Limit). The system will prompt you for the approach value (e.g., 0) and compute the limit numerically from both sides.
+                      </div>
+                    </details>
                   </div>
                 </div>
               </div>
