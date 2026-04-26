@@ -2,7 +2,7 @@ import { X, Mail, LogIn } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 
 export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, logout } = useAuth();
 
   if (!isOpen) return null;
 
@@ -50,13 +50,16 @@ export function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 <div className="w-full border-t border-slate-700"></div>
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-[#1e1e2f] px-2 text-slate-500">Coming soon</span>
+                <span className="bg-[#1e1e2f] px-2 text-slate-500">Or</span>
               </div>
             </div>
 
             <button
-              disabled
-              className="w-full py-3 px-4 bg-slate-800 text-slate-500 font-bold rounded-xl flex items-center justify-center gap-3 cursor-not-allowed opacity-50"
+              onClick={() => {
+                onClose();
+                logout();
+              }}
+              className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl flex items-center justify-center gap-3 transition-colors shadow-lg border border-slate-700"
             >
               <Mail className="w-5 h-5" />
               Sign in with Email

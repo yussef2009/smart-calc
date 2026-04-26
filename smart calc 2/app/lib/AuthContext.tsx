@@ -126,11 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) {
-      // Try 'login' type if 'signup' fails (for resends/signins)
+      // Try 'magiclink' type if 'signup' fails (for resends/signins)
       const { error: error2 } = await supabase.auth.verifyOtp({
         email: verificationEmail,
         token: code,
-        type: 'email'
+        type: 'magiclink'
       });
       if (error2) return false;
     }
