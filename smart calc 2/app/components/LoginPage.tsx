@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
-import { Calculator, LogIn, Sparkles, BrainCircuit, Globe, ArrowRight } from 'lucide-react';
+import { LogIn, Sparkles, BrainCircuit, Globe } from 'lucide-react';
 import { cn } from './ui/utils';
 
 export function LoginPage() {
-  const { signInWithGoogle, loginAsGuest, signInWithEmail, signUpWithEmail, needsVerification, verificationEmail, verifyCode, resendCode } = useAuth();
-  const [isHovered, setIsHovered] = useState(false);
+  const { signInWithGoogle, loginAsGuest, signInWithEmail, signUpWithEmail } = useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
   const [isMounting, setIsMounting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
 
   useEffect(() => {
     setIsMounting(true);
@@ -44,32 +41,6 @@ export function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    if (value.length > 1) value = value.slice(-1);
-    const newOtp = [...otpCode];
-    newOtp[index] = value;
-    setOtpCode(newOtp);
-
-    // Auto-focus next
-    if (value && index < 5) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      nextInput?.focus();
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    const code = otpCode.join('');
-    if (code.length < 6) return;
-    
-    setIsLoading(true);
-    const success = await verifyCode(code);
-    if (!success) {
-      setError("Invalid verification code. Please try again.");
-      setOtpCode(['', '', '', '', '', '']);
-    }
-    setIsLoading(false);
   };
 
   return (
@@ -111,8 +82,8 @@ export function LoginPage() {
       )}>
         {/* Logo Section */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 shadow-2xl shadow-blue-900/40 mb-4 group transition-transform hover:scale-110">
-            <Calculator className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center rounded-3xl bg-transparent mb-4 group transition-transform hover:scale-110">
+            <img src="/logo.png" alt="SmartCalc Logo" className="w-24 h-24 drop-shadow-[0_0_15px_rgba(37,99,235,0.5)]" />
           </div>
           <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 tracking-tight mb-1">
             SMART<span className="text-blue-500">CALC</span>
@@ -128,7 +99,6 @@ export function LoginPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
           
           <div className="relative z-10">
-            {!needsVerification ? (
               <>
                 <div className="flex justify-between items-end mb-6">
                   <div>
@@ -233,59 +203,6 @@ export function LoginPage() {
                   </button>
                 </div>
               </>
-            ) : (
-              <div className="animate-in fade-in slide-in-from-right-8 duration-500">
-                <div className="text-center mb-8">
-                  <div className="w-16 h-16 bg-blue-600/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
-                    <BrainCircuit className="w-8 h-8 text-blue-400 animate-pulse" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Verify your email</h2>
-                  <p className="text-slate-400 text-sm">
-                    We've sent a 6-digit code to <br/>
-                    <span className="text-blue-400 font-medium">{verificationEmail}</span>
-                  </p>
-                </div>
-
-                {error && (
-                  <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <p className="text-xs font-medium text-red-400">{error}</p>
-                  </div>
-                )}
-
-                <div className="flex justify-between gap-2 mb-8">
-                  {otpCode.map((digit, idx) => (
-                    <input
-                      key={idx}
-                      id={`otp-${idx}`}
-                      type="text"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(idx, e.target.value)}
-                      className="w-12 h-14 bg-white/5 border border-white/10 rounded-xl text-center text-xl font-bold text-white focus:outline-none focus:border-blue-500 transition-all"
-                    />
-                  ))}
-                </div>
-
-                <button
-                  onClick={handleVerifyOtp}
-                  disabled={isLoading || otpCode.some(d => !d)}
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-bold mb-6 transition-all transform active:scale-[0.98]"
-                >
-                  {isLoading ? "Verifying..." : "Verify Code"}
-                </button>
-
-                <div className="text-center">
-                  <p className="text-slate-500 text-xs mb-2">Didn't receive the code?</p>
-                  <button 
-                    onClick={resendCode}
-                    className="text-blue-400 hover:text-blue-300 text-xs font-bold uppercase tracking-widest"
-                  >
-                    Resend Code
-                  </button>
-                </div>
-              </div>
-            )}
             
             {/* Security & Features */}
             <div className="mt-8 pt-6 border-t border-white/5">

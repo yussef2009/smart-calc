@@ -5,13 +5,14 @@ import {
   Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine 
 } from 'recharts';
 import { 
-  Activity, Calculator, History, Check, X, 
+  Activity, History, Check, X, 
   Terminal, BookOpen, Settings, AlertCircle, 
   Trash2, ChevronDown, Layers,
-  LogOut
+  LogOut, Camera
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import Tesseract from 'tesseract.js';
 import { useAuth } from './lib/AuthContext';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
@@ -22,7 +23,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 type Tab = 'graph' | 'steps' | 'history' | 'guide';
-type CalcMode = 'COMP' | 'CMPLX' | 'BASE-N' | 'MATRIX' | 'VECTOR' | 'STAT' | 'EQN' | 'TABLE' | 'DIST' | 'LIMIT';
+type CalcMode = 'COMP' | 'CMPLX' | 'BASE-N' | 'MATRIX' | 'VECTOR' | 'STAT' | 'EQN' | 'TABLE' | 'DIST' | 'LIMIT' | 'ALGEBRA' | 'CALCUS' | 'PHYSICS';
 
 interface HistoryItem {
   id: string;
@@ -80,6 +81,11 @@ export default function App() {
   const [calcMode, setCalcMode] = useState<CalcMode>('COMP');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile menu state
+  
+  // OCR State
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
   
   // New state for window settings
   const [windowSettings, setWindowSettings] = useState<WindowSettings>({
@@ -118,6 +124,48 @@ export default function App() {
     };
     loadHistory();
   }, [user]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    setScanProgress(0);
+    setError('');
+
+    try {
+      const { data: { text } } = await Tesseract.recognize(
+        file,
+        'eng',
+        { logger: m => {
+            if (m.status === 'recognizing text') {
+              setScanProgress(Math.round(m.progress * 100));
+            }
+          }
+        }
+      );
+      
+      // Clean up OCR text for math - allow numbers, basic letters, operators
+      let cleaned = text.replace(/[^0-9a-zA-Z+\-*/().=^]/g, '').trim();
+      
+      if (cleaned) {
+        setExpression(cleaned);
+        generateExplanation(`Scanned Equation: ${cleaned}`, 'text');
+      } else {
+        setError("Could not detect any mathematical expression in the image.");
+        setActiveTab('steps');
+        setIsSidebarOpen(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to process image.");
+      setActiveTab('steps');
+      setIsSidebarOpen(true);
+    } finally {
+      setIsScanning(false);
+      e.target.value = '';
+    }
+  };
 
   const analyzeError = (err: any) => {
     const msg = err.message || err.toString();
@@ -505,6 +553,18 @@ export default function App() {
         setResult(resStr);
         setAns(roots[0].toString()); // Save first root to Ans
         generateExplanation(`Solved Equation: ${expression}\nRoots Found: ${resStr}`, 'text');
+        
+        // Add to history
+        const newHistoryItem = {
+          id: Math.random().toString(36).substring(2, 9),
+          expression: expression,
+          result: resStr,
+          timestamp: Date.now()
+        };
+        setHistory(prev => [newHistoryItem, ...prev]);
+        if (user) {
+          saveHistoryToFirestore(user.uid, newHistoryItem);
+        }
       } else {
         setResult('Error');
         setError("Could not converge on a solution. The equation may have no real roots.");
@@ -635,6 +695,18 @@ export default function App() {
       if (isValid) {
         setResult(`lim = ${resStr}`);
         generateExplanation(`Calculated Limit of ${mathExpr} as ${targetVar} -> ${targetStr}\n${explanation}`, 'text');
+        
+        // Add to history
+        const newHistoryItem = {
+          id: Math.random().toString(36).substring(2, 9),
+          expression: `lim(${targetVar}->${targetStr}) ${mathExpr}`,
+          result: resStr,
+          timestamp: Date.now()
+        };
+        setHistory(prev => [newHistoryItem, ...prev]);
+        if (user) {
+          saveHistoryToFirestore(user.uid, newHistoryItem);
+        }
       } else {
         setResult('Error');
         setError('Limit could not be evaluated.');
@@ -770,6 +842,26 @@ export default function App() {
       currentRows[0][0] = { label: 'EVAL', action: handleLimit, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' };
       currentRows[0][1] = { label: 'lim→', action: () => handleAppend(', ') };
       currentRows[0][2] = { label: '∞', val: 'Infinity' };
+    } else if (mode === 'ALGEBRA') {
+      currentRows[0] = [...currentRows[0]];
+      currentRows[0][1] = { label: 'Simplify', val: 'simplify(' };
+      currentRows[0][2] = { label: 'Expand', val: 'expand(' }; // Mock expand, math.js might not support robust expand, but we can try
+      currentRows[1] = [...currentRows[1]];
+      currentRows[1][1] = { label: 'LCM', val: 'lcm(' };
+      currentRows[1][2] = { label: 'GCD', val: 'gcd(' };
+    } else if (mode === 'CALCUS') {
+      currentRows[0] = [...currentRows[0]];
+      currentRows[0][1] = { label: 'd/dx', val: 'derivative(' };
+      currentRows[0][2] = { label: '∫', val: 'integrate(' }; // if unsupported natively, handled as text
+      currentRows[0][3] = { label: 'lim', action: handleLimit };
+    } else if (mode === 'PHYSICS') {
+      currentRows[1] = [...currentRows[1]];
+      currentRows[1][1] = { label: 'G', val: '6.674e-11' };
+      currentRows[1][2] = { label: 'c', val: '299792458' };
+      currentRows[1][3] = { label: 'h', val: '6.626e-34' };
+      currentRows[2] = [...currentRows[2]];
+      currentRows[2][1] = { label: 'e', val: '1.602e-19' };
+      currentRows[2][2] = { label: 'm_e', val: '9.109e-31' };
     }
 
     return currentRows;
@@ -875,97 +967,116 @@ export default function App() {
     <div className={cn("min-h-[100dvh] font-sans selection:bg-blue-500/30 flex flex-col items-center transition-all duration-300", isDarkMode ? "bg-[#0f172a] text-slate-200" : "bg-slate-200 text-slate-800")}>
       
       {/* SYSTEM TOP BAR */}
-      <div className="w-full h-12 bg-[#1A2235]/80 backdrop-blur-md border-b border-white/5 px-6 flex items-center justify-between z-[100] sticky top-0 shadow-xl">
-        <div className="flex items-center gap-6">
+      <div className="w-full bg-[#1A2235]/80 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 py-2 sm:py-0 sm:h-12 flex flex-col sm:flex-row sm:items-center justify-between z-[100] sticky top-0 shadow-xl">
+        <div className="flex items-center justify-between w-full sm:w-auto">
           <div className="flex items-center gap-2.5">
-             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-900/40">
-               <Calculator className="w-4 h-4 text-white" />
+             <div className="w-7 h-7 rounded-lg flex items-center justify-center">
+               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
              </div>
              <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase opacity-80">SmartCalc OS</span>
           </div>
           
-          <div className="h-4 w-px bg-white/10 hidden sm:block" />
+          <button 
+            className="sm:hidden text-white/70 hover:text-white"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            <ChevronDown className={cn("w-5 h-5 transition-transform", isMobileMenuOpen && "rotate-180")} />
+          </button>
+        </div>
+
+        <div className={cn("flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mt-4 sm:mt-0 overflow-hidden transition-all duration-300", 
+            isMobileMenuOpen ? "max-h-64 opacity-100" : "max-h-0 sm:max-h-64 opacity-0 sm:opacity-100"
+        )}>
           
-          <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:flex">
-             <span className="hover:text-blue-400 cursor-pointer transition-colors">Calculator</span>
-             <span className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => setShowWindowSettings(true)}>Settings</span>
+          <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-full sm:w-auto justify-center sm:justify-start">
+             <span className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => {setIsMobileMenuOpen(false); setIsSidebarOpen(false);}}>Calculator</span>
+             <span className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => {setIsMobileMenuOpen(false); setShowWindowSettings(true);}}>Settings</span>
+          </div>
+
+          <div className="h-px w-full sm:h-4 sm:w-px bg-white/10" />
+
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-end pb-2 sm:pb-0">
+             {/* Theme Toggle */}
+             <button 
+               onClick={() => setIsDarkMode(!isDarkMode)}
+               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-all"
+             >
+               {isDarkMode ? '☀️' : '🌙'}
+             </button>
+
+             <div className="h-4 w-px bg-white/10 hidden sm:block" />
+
+             {/* Account Section */}
+             <div className="relative">
+                {user ? (
+                  <button 
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2.5 pl-1.5 pr-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 transition-all group"
+                  >
+                    <img src={user.photoURL || ''} alt="Avatar" className="w-6 h-6 rounded-full border-2 border-blue-400/50 group-hover:scale-105 transition-transform" />
+                    <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase">{user.displayName?.split(' ')[0]}</span>
+                    <ChevronDown className={cn("w-3 h-3 text-blue-400/50 transition-transform", showUserMenu && "rotate-180")} />
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
+                  >
+                    SIGN IN
+                  </button>
+                )}
+
+                {showUserMenu && user && (
+                  <div className="absolute right-0 sm:right-auto mt-3 w-56 bg-[#1e1e2f] border border-white/5 rounded-2xl shadow-2xl z-[100] py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-5 py-3 border-b border-white/5 mb-2 bg-white/5">
+                      <p className="text-xs font-bold text-white truncate">{user.displayName}</p>
+                      <p className="text-[10px] text-slate-500 truncate mt-0.5">{user.email}</p>
+                    </div>
+                    <button 
+                      onClick={() => { toggleSidebar('history'); setShowUserMenu(false); setIsMobileMenuOpen(false); }}
+                      className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      USER LOGS
+                    </button>
+                    <button 
+                      onClick={() => { setShowWindowSettings(true); setShowUserMenu(false); setIsMobileMenuOpen(false); }}
+                      className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      SYSTEM PREFS
+                    </button>
+                    <div className="h-px bg-white/5 my-2" />
+                    <button 
+                      onClick={() => { logout(); setShowUserMenu(false); setIsMobileMenuOpen(false); }}
+                      className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-all"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      TERMINATE SESSION
+                    </button>
+                  </div>
+                )}
+             </div>
+
+             {/* Time Display */}
+             <div className="h-4 w-px bg-white/10 hidden sm:block" />
+             <div className="hidden sm:flex flex-col items-end leading-none">
+                <span className="text-[10px] font-black text-white tracking-widest uppercase">
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className="text-[8px] font-bold text-slate-500 mt-0.5">
+                  {new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                </span>
+             </div>
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-4">
-           {/* Theme Toggle */}
-           <button 
-             onClick={() => setIsDarkMode(!isDarkMode)}
-             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-all"
-           >
-             {isDarkMode ? '☀️' : '🌙'}
-           </button>
-
-           <div className="h-4 w-px bg-white/10" />
-
-           {/* Account Section */}
-           <div className="relative">
-              {user ? (
-                <button 
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2.5 pl-1.5 pr-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 transition-all group"
-                >
-                  <img src={user.photoURL || ''} alt="Avatar" className="w-6 h-6 rounded-full border-2 border-blue-400/50 group-hover:scale-105 transition-transform" />
-                  <span className="text-[10px] font-bold text-blue-400 tracking-wider hidden sm:inline uppercase">{user.displayName?.split(' ')[0]}</span>
-                  <ChevronDown className={cn("w-3 h-3 text-blue-400/50 transition-transform", showUserMenu && "rotate-180")} />
-                </button>
-              ) : (
-                <button 
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
-                >
-                  SIGN IN
-                </button>
-              )}
-
-              {showUserMenu && user && (
-                <div className="absolute right-0 mt-3 w-56 bg-[#1e1e2f] border border-white/5 rounded-2xl shadow-2xl z-[100] py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="px-5 py-3 border-b border-white/5 mb-2 bg-white/5">
-                    <p className="text-xs font-bold text-white truncate">{user.displayName}</p>
-                    <p className="text-[10px] text-slate-500 truncate mt-0.5">{user.email}</p>
-                  </div>
-                  <button 
-                    onClick={() => { toggleSidebar('history'); setShowUserMenu(false); }}
-                    className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
-                  >
-                    <History className="w-3.5 h-3.5" />
-                    USER LOGS
-                  </button>
-                  <button 
-                    onClick={() => { setShowWindowSettings(true); setShowUserMenu(false); }}
-                    className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    SYSTEM PREFS
-                  </button>
-                  <div className="h-px bg-white/5 my-2" />
-                  <button 
-                    onClick={() => { logout(); setShowUserMenu(false); }}
-                    className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-all"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    TERMINATE SESSION
-                  </button>
-                </div>
-              )}
-           </div>
-
-           {/* Time Display */}
-           <div className="h-4 w-px bg-white/10 hidden md:block" />
-           <div className="hidden md:flex flex-col items-end leading-none">
-              <span className="text-[10px] font-black text-white tracking-widest uppercase">
-                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <span className="text-[8px] font-bold text-slate-500 mt-0.5">
-                {new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}
-              </span>
-           </div>
-        </div>
+      {/* Animated Background */}
+      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
+        <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" style={{animationDuration: '8s'}} />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-emerald-600/10 rounded-full blur-[150px] animate-pulse" style={{animationDuration: '12s'}} />
+        <div className="absolute top-[30%] left-[60%] w-[30vw] h-[30vw] bg-purple-600/5 rounded-full blur-[100px] animate-pulse" style={{animationDuration: '10s'}} />
       </div>
 
       <div className={cn("flex-1 w-full flex flex-col p-0 sm:p-6 md:p-8 transition-all duration-300")}>
@@ -978,9 +1089,26 @@ export default function App() {
           <div className="px-4 py-3 border-b border-slate-800/60 flex items-center justify-between bg-[#1A2235]">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-slate-300">
-                <Calculator className="w-5 h-5 text-blue-400" />
+                <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain drop-shadow-[0_0_5px_rgba(37,99,235,0.5)]" />
                 <span className="font-bold text-xs tracking-wide uppercase">MATHENGINE OS</span>
               </div>
+              
+              {/* OCR Button */}
+              <button 
+                onClick={() => document.getElementById('ocr-input')?.click()}
+                className="flex items-center justify-center w-7 h-7 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/40 transition-colors border border-blue-500/20 ml-2"
+                title="Scan Equation from Image"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+              <input 
+                type="file" 
+                id="ocr-input" 
+                accept="image/*" 
+                capture="environment" 
+                className="hidden" 
+                onChange={handleImageUpload} 
+              />
               
               {/* DB Status Badge */}
               <div className={cn(
@@ -1028,6 +1156,17 @@ export default function App() {
                 <span>D</span>
               </div>
             </div>
+
+            {/* Scanning Overlay */}
+            {isScanning && (
+              <div className="absolute inset-0 bg-[#e6f0ea]/90 z-20 flex flex-col items-center justify-center">
+                 <Camera className="w-8 h-8 text-[#558870] animate-pulse mb-2" />
+                 <p className="text-[#558870] font-mono text-xs font-bold uppercase tracking-widest">Scanning {scanProgress}%</p>
+                 <div className="w-3/4 max-w-[200px] h-1 bg-[#558870]/20 rounded-full mt-2 overflow-hidden">
+                   <div className="h-full bg-[#558870] transition-all duration-300" style={{ width: `${scanProgress}%` }} />
+                 </div>
+              </div>
+            )}
 
             <div 
               ref={displayRef}
@@ -1359,8 +1498,16 @@ export default function App() {
                   </h3>
                 </div>
                 
+                {/* Category Links */}
+                <div className="flex flex-wrap gap-2 mb-6">
+                   <button onClick={() => document.getElementById('guide-general')?.scrollIntoView({behavior: 'smooth'})} className="px-3 py-1.5 bg-slate-800 hover:bg-blue-900/50 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">General</button>
+                   <button onClick={() => document.getElementById('guide-middle')?.scrollIntoView({behavior: 'smooth'})} className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-900/50 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">Middle & High School</button>
+                   <button onClick={() => document.getElementById('guide-college')?.scrollIntoView({behavior: 'smooth'})} className="px-3 py-1.5 bg-slate-800 hover:bg-purple-900/50 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">College & Engineering</button>
+                   <button onClick={() => document.getElementById('guide-data')?.scrollIntoView({behavior: 'smooth'})} className="px-3 py-1.5 bg-slate-800 hover:bg-pink-900/50 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">Data & Stat</button>
+                </div>
+
                 {/* General Guide */}
-                <div className="bg-[#1A2235]/50 border border-slate-800/80 p-6 rounded-2xl text-sm leading-relaxed space-y-4">
+                <div id="guide-general" className="bg-[#1A2235]/50 border border-slate-800/80 p-6 rounded-2xl text-sm leading-relaxed space-y-4">
                   <h4 className="text-cyan-400 font-bold mb-2 text-lg border-b border-slate-700 pb-2">📚 General Calculator Guide</h4>
                   <div className="grid gap-6">
                     <div>
@@ -1392,76 +1539,95 @@ export default function App() {
                   <h4 className="text-blue-400 font-bold mb-2 text-lg border-b border-slate-700 pb-2">🧮 Mode-Specific Guides</h4>
                   <p className="text-slate-400 mb-4">Click on a mode to learn how to use it.</p>
                   
-                  <div className="space-y-3">
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-blue-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">COMP (Standard)</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Perform basic arithmetic, trigonometric, and logarithmic calculations. Supports parentheses and variable assignments. Use the main keypad for standard operations.
-                      </div>
-                    </details>
-                    
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-purple-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">CMPLX (Complex)</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Work with complex numbers. Press the <span className="text-yellow-200">i</span> button to enter the imaginary unit. Use <span className="text-yellow-200">Arg</span> to find the argument of a complex number. Example: <code className="bg-slate-800 px-1 rounded text-cyan-300">2 + 3i</code>.
-                      </div>
-                    </details>
-                    
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-red-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">BASE-N</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Perform calculations in different number bases (Binary, Octal, Decimal, Hexadecimal). Use the DEC, HEX, BIN, and OCT keys to format the output. Add suffixes like <code>hex</code> or <code>bin</code> to your expression to convert bases.
-                      </div>
-                    </details>
-                    
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-emerald-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">MATRIX</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Evaluate matrix operations. Use MatA, MatB keys. You can also input matrices directly using array syntax e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">[[1,2],[3,4]]</code>. Functions like Determinant (Det) and Transpose (Trn) are available via SHIFT.
-                      </div>
-                    </details>
+                  <div className="space-y-6">
+                    <div id="guide-middle" className="space-y-3">
+                      <h5 className="text-emerald-400 font-bold text-sm uppercase tracking-widest border-b border-slate-700/50 pb-1">Middle & High School</h5>
+                      
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-blue-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">COMP (Standard)</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Perform basic arithmetic, trigonometric, and logarithmic calculations. Supports parentheses and variable assignments. Use the main keypad for standard operations.
+                        </div>
+                      </details>
+                      
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-emerald-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">ALGEBRA</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Simplify expressions, expand polynomials, and find LCM/GCD. Extremely helpful for checking algebraic homework. Example: simplify <code className="bg-slate-800 px-1 rounded text-cyan-300">2x + 3x</code>.
+                        </div>
+                      </details>
+                      
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-amber-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">EQN (Equation)</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Solve algebraic equations. Type an equation using the <span className="text-red-400">ALPHA</span> = sign, like <code className="bg-slate-800 px-1 rounded text-cyan-300">X^2=4</code>, then press <span className="text-blue-400">=</span> or SHIFT + SOLVE. The calculator uses numerical methods to find roots.
+                        </div>
+                      </details>
+                      
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-lime-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">TABLE / GRAPH</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Define functions f(x) and g(x). To plot, enter an expression with 'X' (e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">sin(X)</code>) and press ALPHA + Plot. The interactive graph viewer will display the result over the defined window.
+                        </div>
+                      </details>
+                    </div>
 
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-teal-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">VECTOR</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Calculate dot products, cross products, and vector arithmetic. Similar to matrix mode, you can input vectors as arrays e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">[1, 2, 3]</code>. Use Dot and Cross from the SHIFT menu.
-                      </div>
-                    </details>
-                    
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-pink-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">STAT</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Perform statistical calculations. Use the 1-VAR or A+BX keys to initialize statistical data entry (currently evaluates as standard function strings).
-                      </div>
-                    </details>
+                    <div id="guide-college" className="space-y-3">
+                      <h5 className="text-purple-400 font-bold text-sm uppercase tracking-widest border-b border-slate-700/50 pb-1">College & Engineering</h5>
 
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-amber-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">EQN (Equation)</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Solve algebraic equations. Type an equation using the <span className="text-red-400">ALPHA</span> = sign, like <code className="bg-slate-800 px-1 rounded text-cyan-300">X^2=4</code>, then press <span className="text-blue-400">=</span> or SHIFT + SOLVE. The calculator uses numerical methods to find roots.
-                      </div>
-                    </details>
-                    
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-lime-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">TABLE / GRAPH</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Define functions f(x) and g(x). To plot, enter an expression with 'X' (e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">sin(X)</code>) and press ALPHA + Plot. The interactive graph viewer will display the result over the defined window.
-                      </div>
-                    </details>
-                    
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-cyan-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">DIST</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Calculate statistical distributions such as Normal (normPD) and Binomial (binomPD). Provide arguments as specified by math.js library.
-                      </div>
-                    </details>
-                    
-                    <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
-                      <summary className="font-bold text-indigo-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">LIMIT</summary>
-                      <div className="p-4 pt-0 text-slate-300 text-sm">
-                        Evaluate mathematical limits. Enter an expression, then press EVAL (Limit). The system will prompt you for the approach value (e.g., 0) and compute the limit numerically from both sides.
-                      </div>
-                    </details>
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-indigo-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">CALCUS (Calculus)</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Perform symbolic derivatives and limits. Easily access standard calculus operators like d/dx and limits.
+                        </div>
+                      </details>
+
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-purple-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">CMPLX (Complex)</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Work with complex numbers. Press the <span className="text-yellow-200">i</span> button to enter the imaginary unit. Use <span className="text-yellow-200">Arg</span> to find the argument of a complex number. Example: <code className="bg-slate-800 px-1 rounded text-cyan-300">2 + 3i</code>.
+                        </div>
+                      </details>
+                      
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-emerald-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">MATRIX & VECTOR</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Evaluate matrix operations. Use MatA, MatB keys. You can also input matrices directly using array syntax e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">[[1,2],[3,4]]</code>. For Vectors, calculate dot/cross products.
+                        </div>
+                      </details>
+
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-orange-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">PHYSICS</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Provides quick access to engineering and physics constants like G (Gravity), c (Speed of light), h (Planck), e (Elementary charge).
+                        </div>
+                      </details>
+                      
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-red-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">BASE-N</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Perform calculations in different number bases (Binary, Octal, Decimal, Hexadecimal). Use the DEC, HEX, BIN, and OCT keys to format the output.
+                        </div>
+                      </details>
+                    </div>
+
+                    <div id="guide-data" className="space-y-3">
+                      <h5 className="text-pink-400 font-bold text-sm uppercase tracking-widest border-b border-slate-700/50 pb-1">Data & Statistics</h5>
+                      
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-pink-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">STAT</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Perform statistical calculations. Use the 1-VAR or A+BX keys to initialize statistical data entry (currently evaluates as standard function strings).
+                        </div>
+                      </details>
+
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-cyan-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">DIST (Distributions)</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm">
+                          Calculate statistical distributions such as Normal (normPD) and Binomial (binomPD). Provide arguments as specified by math.js library.
+                        </div>
+                      </details>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1501,6 +1667,9 @@ export default function App() {
               { id: 'VECTOR', label: '8', name: 'VECTOR' },
               { id: 'DIST', label: '9', name: 'DIST' },
               { id: 'LIMIT', label: '0', name: 'LIMIT' },
+              { id: 'ALGEBRA', label: '+', name: 'ALGEBRA' },
+              { id: 'CALCUS', label: '-', name: 'CALCUS' },
+              { id: 'PHYSICS', label: '*', name: 'PHYSICS' },
             ].map((m) => (
               <button
                 key={m.id}

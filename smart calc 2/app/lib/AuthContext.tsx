@@ -4,13 +4,9 @@ import { supabase } from './supabase';
 interface AuthContextType {
   user: any | null;
   loading: boolean;
-  needsVerification: boolean;
-  verificationEmail: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
-  verifyCode: (code: string) => Promise<boolean>;
-  resendCode: () => Promise<void>;
   loginAsGuest: () => void;
   logout: () => Promise<void>;
   isDemo: boolean;
@@ -33,8 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
 
   useEffect(() => {
     // Check local storage for demo user
@@ -83,11 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) {
-      // If the error is that the email is not confirmed, we show the verification UI
       if (error.message.includes('Email not confirmed')) {
-        setVerificationEmail(email);
-        setNeedsVerification(true);
-        return;
+        throw new Error('Please check your email inbox to verify your account before logging in.');
       }
       throw error;
     }
@@ -109,43 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
 
     if (data.user && data.session === null) {
-      // Email verification sent by Supabase
-      setVerificationEmail(email);
-      setNeedsVerification(true);
-    }
-  };
-
-  const verifyCode = async (code: string): Promise<boolean> => {
-    if (!verificationEmail) return false;
-
-    // Use Supabase verifyOtp for either signup confirmation or login
-    const { error } = await supabase.auth.verifyOtp({
-      email: verificationEmail,
-      token: code,
-      type: 'signup' // or 'login' depending on the flow
-    });
-
-    if (error) {
-      // Try 'magiclink' type if 'signup' fails (for resends/signins)
-      const { error: error2 } = await supabase.auth.verifyOtp({
-        email: verificationEmail,
-        token: code,
-        type: 'magiclink'
-      });
-      if (error2) return false;
-    }
-    
-    setNeedsVerification(false);
-    return true;
-  };
-
-  const resendCode = async () => {
-    if (verificationEmail) {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: verificationEmail,
-      });
-      if (error) throw error;
+      throw new Error('Account created! Please check your email to verify your account.');
     }
   };
 
@@ -167,7 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('smart_calc_user');
       setUser(null);
       setIsDemo(false);
-      setNeedsVerification(false);
     } catch (error) {
       console.error("Error signing out", error);
     }
@@ -177,13 +131,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{ 
         user, 
         loading, 
-        needsVerification, 
-        verificationEmail,
         signInWithGoogle, 
         signInWithEmail, 
         signUpWithEmail, 
-        verifyCode,
-        resendCode,
         loginAsGuest, 
         logout, 
         isDemo 
