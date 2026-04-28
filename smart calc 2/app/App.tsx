@@ -901,17 +901,26 @@ export default function App() {
   ];
 
   const renderSciButton = (btn: any, i: number) => {
+    const baseClass = isDarkMode 
+      ? "bg-[#33334d] hover:bg-[#4d4d73] text-slate-100 border-[#1e1e2f]" 
+      : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300";
+      
+    const specialClass = btn.label === 'CALC' || btn.label === 'EVAL'
+      ? (isDarkMode ? "bg-slate-700 hover:bg-slate-600 border-slate-900" : "bg-slate-800 hover:bg-slate-700 text-white border-slate-950")
+      : "";
+
     return (
       <div key={i} className="flex flex-col items-center col-span-1">
         <div className="flex w-full justify-between px-[2px] mb-[2px] h-[12px]">
-          <span className="text-[8px] font-bold text-amber-500 leading-none">{btn.shiftLabel}</span>
-          <span className="text-[8px] font-bold text-red-500 leading-none">{btn.alphaLabel}</span>
+          <span className="text-[8px] font-black text-amber-500 leading-none">{btn.shiftLabel}</span>
+          <span className="text-[8px] font-black text-red-500 leading-none">{btn.alphaLabel}</span>
         </div>
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-8 sm:h-9 bg-[#33334d] hover:bg-[#4d4d73] text-slate-100 rounded-[8px] sm:rounded-[10px] text-xs font-semibold shadow-sm border-b-[3px] border-[#1e1e2f] active:border-b-0 active:translate-y-[3px] transition-all",
-            btn.label === 'CALC' ? "bg-slate-700 hover:bg-slate-600 border-slate-900" : ""
+            "w-full h-8 sm:h-9 rounded-lg text-[11px] font-bold shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
+            baseClass,
+            specialClass
           )}
         >
           {btn.label}
@@ -921,26 +930,36 @@ export default function App() {
   };
 
   const renderNumButton = (btn: any, i: number) => {
-    let variantClass = "bg-[#282a36] hover:bg-[#383a48] text-white border-b-[3px] border-[#161820]";
+    let variantClass = isDarkMode
+      ? "bg-[#282a36] hover:bg-[#383a48] text-white border-[#161820]"
+      : "bg-white hover:bg-slate-50 text-slate-800 border-slate-200";
     
     if (btn.type === 'op') {
-      variantClass = "bg-[#44475a] hover:bg-[#56596e] text-white border-b-[3px] border-[#292b36]";
+      variantClass = isDarkMode
+        ? "bg-[#44475a] hover:bg-[#56596e] text-white border-[#292b36]"
+        : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300";
     } else if (btn.type === 'ctrl') {
-      variantClass = btn.label === '=' 
-        ? "bg-[#00e5ff] hover:bg-[#33ebff] text-black border-b-[3px] border-[#00a3b8]"
-        : "bg-[#ff5555] hover:bg-[#ff7777] text-white border-b-[3px] border-[#cc4444]";
+      if (btn.label === '=') {
+        variantClass = isDarkMode
+          ? "bg-cyan-500 hover:bg-cyan-400 text-black border-cyan-700"
+          : "bg-cyan-400 hover:bg-cyan-300 text-cyan-950 border-cyan-600";
+      } else {
+        variantClass = isDarkMode
+          ? "bg-red-500 hover:bg-red-400 text-white border-red-700"
+          : "bg-red-100 hover:bg-red-200 text-red-600 border-red-200";
+      }
     }
 
     return (
       <div key={i} className="flex flex-col items-center col-span-1">
         <div className="flex w-full justify-between px-1 mb-[2px] h-[12px]">
-          <span className="text-[8px] font-bold text-amber-500 leading-none">{btn.shiftLabel}</span>
-          <span className="text-[8px] font-bold text-red-500 leading-none">{btn.alphaLabel}</span>
+          <span className="text-[8px] font-black text-amber-500 leading-none">{btn.shiftLabel}</span>
+          <span className="text-[8px] font-black text-red-500 leading-none">{btn.alphaLabel}</span>
         </div>
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-11 sm:h-12 rounded-[10px] text-lg font-bold shadow-sm active:border-b-0 active:translate-y-[3px] transition-all",
+            "w-full h-11 sm:h-12 rounded-xl text-xl font-black shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
             variantClass
           )}
         >
@@ -964,16 +983,22 @@ export default function App() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col font-sans selection:bg-blue-500/30 overflow-hidden text-slate-200 bg-[#070b14]">
+    <div className={cn(
+      "h-[100dvh] flex flex-col font-sans selection:bg-blue-500/30 overflow-hidden transition-colors duration-500",
+      isDarkMode ? "text-slate-200 bg-[#070b14]" : "text-slate-900 bg-[#f8fafc]"
+    )}>
       
       {/* SYSTEM TOP BAR */}
-      <div className="w-full h-12 flex-shrink-0 bg-[#1A2235]/90 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between z-[100] shadow-xl">
+      <div className={cn(
+        "w-full h-12 flex-shrink-0 backdrop-blur-md border-b px-4 flex items-center justify-between z-[100] shadow-sm transition-all",
+        isDarkMode ? "bg-[#1A2235]/90 border-white/5 shadow-black/40" : "bg-white/80 border-slate-200 shadow-slate-200/50"
+      )}>
         {/* Left: logo */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center">
             <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
           </div>
-          <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase opacity-80 hidden sm:block">SmartCalc OS</span>
+          <span className={cn("text-[11px] font-black tracking-[0.2em] uppercase opacity-80 hidden sm:block", isDarkMode ? "text-white" : "text-slate-900")}>SmartCalc OS</span>
         </div>
 
         {/* Right: controls */}
@@ -1089,63 +1114,67 @@ export default function App() {
         <div
           id="calculator-panel"
           className={cn(
-            "flex-shrink-0 w-full md:w-[420px] h-full flex flex-col min-h-0 bg-[#1e1e2f]",
-            "border-r border-slate-800/60 overflow-hidden",
-            !isDarkMode && "invert hue-rotate-180"
+            "flex-shrink-0 w-full md:w-[420px] h-full flex flex-col min-h-0 transition-all duration-500",
+            isDarkMode ? "bg-[#1e1e2f] border-r border-slate-800/60" : "bg-white border-r border-slate-200 shadow-2xl shadow-slate-200"
           )}
         >
           
           {/* Header */}
-          <div className="px-4 py-3 border-b border-slate-800/60 flex items-center justify-between bg-[#1A2235]">
+          <div className={cn(
+            "px-4 py-3 border-b flex items-center justify-between transition-all",
+            isDarkMode ? "bg-[#1A2235] border-slate-800/60" : "bg-slate-50 border-slate-200"
+          )}>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-slate-300">
+              <div className={cn("flex items-center gap-2", isDarkMode ? "text-slate-300" : "text-slate-600")}>
                 <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain drop-shadow-[0_0_5px_rgba(37,99,235,0.5)]" />
-                <span className="font-bold text-xs tracking-wide uppercase">MATHENGINE OS</span>
+                <span className="font-black text-[10px] tracking-[0.2em] uppercase">MATHENGINE</span>
               </div>
               
               {/* OCR Button */}
               <button 
                 onClick={() => document.getElementById('ocr-input')?.click()}
-                className="flex items-center justify-center w-7 h-7 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/40 transition-colors border border-blue-500/20 ml-2"
-                title="Scan Equation from Image"
+                className={cn(
+                  "flex items-center justify-center w-7 h-7 rounded-lg transition-all border",
+                  isDarkMode ? "bg-blue-600/10 text-blue-400 border-blue-500/20 hover:bg-blue-600/30" : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                )}
+                title="Scan Equation"
               >
                 <Camera className="w-4 h-4" />
               </button>
-              <input 
-                type="file" 
-                id="ocr-input" 
-                accept="image/*" 
-                capture="environment" 
-                className="hidden" 
-                onChange={handleImageUpload} 
-              />
+              <input type="file" id="ocr-input" accept="image/*" className="hidden" onChange={handleImageUpload} />
               
               {/* DB Status Badge */}
               <div className={cn(
-                "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border",
+                "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all",
                 user?.uid?.startsWith('mock_') || user?.uid?.startsWith('guest_')
-                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  ? (isDarkMode ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-amber-50 text-amber-700 border-amber-200")
+                  : (isDarkMode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border-emerald-200")
               )}>
-                <div className={cn("w-1 h-1 rounded-full", 
+                <div className={cn("w-1 h-1 rounded-full animate-pulse", 
                   user?.uid?.startsWith('mock_') || user?.uid?.startsWith('guest_') ? "bg-amber-500" : "bg-emerald-500"
                 )} />
-                {user?.uid?.startsWith('mock_') || user?.uid?.startsWith('guest_') ? "Local DB" : "Cloud Active"}
+                {user?.uid?.startsWith('mock_') || user?.uid?.startsWith('guest_') ? "LOCAL" : "CLOUD"}
               </div>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <button 
                 onClick={() => toggleSidebar('history')}
-                className={cn("text-[10px] font-bold px-2 py-1 rounded transition-colors", isSidebarOpen && activeTab === 'history' ? "bg-blue-600 text-white" : "bg-[#252538] text-slate-300 hover:bg-slate-700")}
+                className={cn("text-[9px] font-black px-2 py-1 rounded-md transition-all uppercase tracking-widest", 
+                  isSidebarOpen && activeTab === 'history' 
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30" 
+                    : (isDarkMode ? "bg-[#252538] text-slate-400 hover:bg-slate-700 hover:text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"))}
               >
-                📜 LOG
+                LOG
               </button>
               <button 
                 onClick={() => toggleSidebar('guide')}
-                className={cn("text-[10px] font-bold px-2 py-1 rounded transition-colors", isSidebarOpen && activeTab === 'guide' ? "bg-emerald-600 text-white" : "bg-[#252538] text-slate-300 hover:bg-slate-700")}
+                className={cn("text-[9px] font-black px-2 py-1 rounded-md transition-all uppercase tracking-widest", 
+                  isSidebarOpen && activeTab === 'guide' 
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/30" 
+                    : (isDarkMode ? "bg-[#252538] text-slate-400 hover:bg-slate-700 hover:text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"))}
               >
-                ❓ GUIDE
+                GUIDE
               </button>
             </div>
           </div>
@@ -1153,13 +1182,21 @@ export default function App() {
           <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
           {/* Display */}
-          <div className="bg-[#e6f0ea] p-3 pt-5 h-[105px] flex-shrink-0 flex flex-col justify-end items-end relative shadow-inner mx-3 mt-2 mb-3 rounded border-2 border-slate-600/30">
+          <div className={cn(
+            "p-4 pt-6 h-[115px] flex-shrink-0 flex flex-col justify-end items-end relative mx-3 mt-3 mb-4 rounded-xl border transition-all duration-500",
+            isDarkMode 
+              ? "bg-[#e6f0ea] shadow-[inset_0_2px_10px_rgba(0,0,0,0.2)] border-slate-700/50" 
+              : "bg-[#fdfdfd] shadow-[0_4px_20px_-5px_rgba(0,0,0,0.1),inset_0_2px_5px_rgba(0,0,0,0.05)] border-slate-200"
+          )}>
             {/* Top LCD Status Bar */}
-            <div className="absolute top-2 left-3 right-3 flex justify-between items-start text-[#558870] font-mono text-[10px] sm:text-xs font-bold tracking-widest opacity-90 select-none">
+            <div className={cn(
+              "absolute top-2.5 left-4 right-4 flex justify-between items-start font-mono text-[10px] font-black tracking-[0.2em] select-none transition-all",
+              isDarkMode ? "text-[#558870] opacity-80" : "text-slate-400"
+            )}>
               <div className="flex gap-3 items-center">
-                <span className="bg-[#558870]/10 px-1 rounded">{calcMode}</span>
-                {isShift && <span className="bg-amber-900/10 px-1 rounded text-amber-800">S</span>}
-                {isAlpha && <span className="bg-red-900/10 px-1 rounded text-red-800">A</span>}
+                <span className={cn("px-1 rounded", isDarkMode ? "bg-[#558870]/10" : "bg-slate-100")}>{calcMode}</span>
+                {isShift && <span className={cn("px-1 rounded animate-pulse", isDarkMode ? "bg-amber-900/10 text-amber-800" : "bg-amber-100 text-amber-600")}>S</span>}
+                {isAlpha && <span className={cn("px-1 rounded animate-pulse", isDarkMode ? "bg-red-900/10 text-red-800" : "bg-red-100 text-red-600")}>A</span>}
               </div>
               <div className="flex gap-2">
                 <span>MATH</span>
@@ -1169,12 +1206,9 @@ export default function App() {
 
             {/* Scanning Overlay */}
             {isScanning && (
-              <div className="absolute inset-0 bg-[#e6f0ea]/90 z-20 flex flex-col items-center justify-center">
-                 <Camera className="w-8 h-8 text-[#558870] animate-pulse mb-2" />
-                 <p className="text-[#558870] font-mono text-xs font-bold uppercase tracking-widest">Scanning {scanProgress}%</p>
-                 <div className="w-3/4 max-w-[200px] h-1 bg-[#558870]/20 rounded-full mt-2 overflow-hidden">
-                   <div className="h-full bg-[#558870] transition-all duration-300" style={{ width: `${scanProgress}%` }} />
-                 </div>
+              <div className={cn("absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl backdrop-blur-[2px]", isDarkMode ? "bg-[#e6f0ea]/90" : "bg-white/90")}>
+                 <Camera className={cn("w-8 h-8 animate-pulse mb-2", isDarkMode ? "text-[#558870]" : "text-blue-500")} />
+                 <p className={cn("font-mono text-xs font-black uppercase tracking-widest", isDarkMode ? "text-[#558870]" : "text-blue-600")}>Scanning {scanProgress}%</p>
               </div>
             )}
 
@@ -1182,17 +1216,26 @@ export default function App() {
               ref={displayRef}
               className="w-full overflow-x-auto overflow-y-hidden text-right whitespace-nowrap scrollbar-hide mb-1"
             >
-              <div className="text-2xl sm:text-3xl font-mono text-[#0d1f15] font-semibold tracking-wider min-h-[36px]">
-                {expression || <span className="opacity-30">0</span>}
+              <div className={cn(
+                "text-3xl font-mono font-black tracking-tight min-h-[40px] transition-all",
+                isDarkMode ? "text-[#0d1f15]" : "text-slate-900"
+              )}>
+                {expression || <span className="opacity-20 italic">0</span>}
               </div>
             </div>
-            <div className="text-lg font-mono text-[#558870] font-semibold h-6 transition-all">
+            <div className={cn(
+              "text-lg font-mono font-bold h-7 transition-all",
+              isDarkMode ? "text-[#558870]" : "text-blue-600"
+            )}>
               {result && (result === 'Error' ? <span className="text-red-600">Error</span> : `= ${result}`)}
             </div>
           </div>
 
           {/* Keypad – fills remaining height, content scales inside */}
-          <div className="flex flex-col flex-1 min-h-0 bg-[#161D2E] p-2 sm:p-3 overflow-hidden">
+          <div className={cn(
+            "flex flex-col flex-1 min-h-0 p-2 sm:p-4 overflow-hidden transition-all duration-500",
+            isDarkMode ? "bg-[#161D2E] shadow-[inset_0_10px_30px_rgba(0,0,0,0.5)]" : "bg-slate-50 shadow-[inset_0_1px_10px_rgba(0,0,0,0.05)]"
+          )}>
             
             {/* TOP ROW: SHIFT, ALPHA, MODE, ON */}
             <div className="flex justify-between items-start mb-2 px-1 flex-shrink-0">
@@ -1200,7 +1243,12 @@ export default function App() {
                 <div className="flex flex-col items-center">
                   <button 
                     onClick={() => { setIsShift(!isShift); setIsAlpha(false); }} 
-                    className={cn("w-10 sm:w-12 h-7 sm:h-8 rounded-[8px] sm:rounded-[10px] text-[9px] sm:text-[10px] font-bold shadow-md active:translate-y-0.5 transition-all border-b-2", isShift ? "bg-amber-500 text-black border-amber-700" : "bg-[#1E293B] hover:bg-[#273549] text-slate-300 border-[#0F172A]")}
+                    className={cn(
+                      "w-10 sm:w-12 h-7 sm:h-8 rounded-lg text-[9px] sm:text-[10px] font-black transition-all border-b-2 active:border-b-0 active:translate-y-[2px]", 
+                      isShift 
+                        ? "bg-amber-500 text-black border-amber-700 shadow-[0_0_15px_rgba(245,158,11,0.4)]" 
+                        : (isDarkMode ? "bg-[#1E293B] text-slate-300 border-[#0F172A]" : "bg-slate-200 text-slate-600 border-slate-300")
+                    )}
                   >
                     SHIFT
                   </button>
@@ -1208,7 +1256,12 @@ export default function App() {
                 <div className="flex flex-col items-center">
                   <button 
                     onClick={() => { setIsAlpha(!isAlpha); setIsShift(false); }} 
-                    className={cn("w-10 sm:w-12 h-7 sm:h-8 rounded-[8px] sm:rounded-[10px] text-[9px] sm:text-[10px] font-bold shadow-md active:translate-y-0.5 transition-all border-b-2", isAlpha ? "bg-red-500 text-white border-red-700" : "bg-[#1E293B] hover:bg-[#273549] text-slate-300 border-[#0F172A]")}
+                    className={cn(
+                      "w-10 sm:w-12 h-7 sm:h-8 rounded-lg text-[9px] sm:text-[10px] font-black transition-all border-b-2 active:border-b-0 active:translate-y-[2px]", 
+                      isAlpha 
+                        ? "bg-red-500 text-white border-red-700 shadow-[0_0_15px_rgba(239,68,68,0.4)]" 
+                        : (isDarkMode ? "bg-[#1E293B] text-slate-300 border-[#0F172A]" : "bg-slate-200 text-slate-600 border-slate-300")
+                    )}
                   >
                     ALPHA
                   </button>
@@ -1216,23 +1269,33 @@ export default function App() {
               </div>
               
               {/* Nav Pad area (Visual) */}
-              <div className="relative w-16 sm:w-20 h-14 sm:h-16 bg-[#1A2235] rounded-full flex flex-col items-center justify-center -mt-1 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] border-2 border-[#0F172A] cursor-pointer hover:bg-[#222E42] transition-colors">
+              <div className={cn(
+                "relative w-16 sm:w-20 h-14 sm:h-16 rounded-full flex flex-col items-center justify-center -mt-1 shadow-inner border-2 transition-all",
+                isDarkMode ? "bg-[#1A2235] border-[#0F172A]" : "bg-slate-200 border-slate-300 shadow-slate-300"
+              )}>
                  <div className="absolute top-1 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-slate-400" />
                  <div className="absolute bottom-1 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-l-transparent border-r-transparent border-t-slate-400" />
                  <div className="absolute left-1 w-0 h-0 border-t-[4px] border-b-[4px] border-r-[6px] border-t-transparent border-b-transparent border-r-slate-400" />
                  <div className="absolute right-1 w-0 h-0 border-t-[4px] border-b-[4px] border-l-[6px] border-t-transparent border-b-transparent border-l-slate-400" />
-                 <div className="w-8 h-8 rounded-full bg-[#131A2A] shadow-inner" />
+                 <div className={cn("w-8 h-8 rounded-full shadow-inner transition-all", isDarkMode ? "bg-[#131A2A]" : "bg-slate-100 shadow-slate-200")} />
               </div>
 
               <div className="flex gap-3 sm:gap-4">
                 <button 
                   onClick={() => handleBtnClick({label: 'MODE'})}
-                  title="Click for Mode (Normal/Complex/Matrix), Shift+Click for Window Settings"
-                  className="w-10 sm:w-12 h-7 sm:h-8 rounded-[8px] sm:rounded-[10px] bg-[#1E293B] hover:bg-[#273549] text-slate-300 text-[9px] sm:text-[10px] font-bold border-b-2 border-[#0F172A] shadow-md active:translate-y-0.5 transition-all">
+                  className={cn(
+                    "w-10 sm:w-12 h-7 sm:h-8 rounded-lg text-[9px] sm:text-[10px] font-black border-b-2 transition-all active:border-b-0 active:translate-y-[2px] relative",
+                    isDarkMode ? "bg-[#1E293B] text-slate-300 border-[#0F172A]" : "bg-slate-200 text-slate-600 border-slate-300"
+                  )}>
                   MODE
-                  <div className="text-[7px] text-cyan-400 absolute -bottom-1 whitespace-nowrap">{calcMode}</div>
+                  <div className="text-[7px] text-cyan-400 absolute -bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap font-black">{calcMode}</div>
                 </button>
-                <button onClick={handleClear} className="w-10 sm:w-12 h-7 sm:h-8 rounded-[8px] sm:rounded-[10px] bg-[#1E293B] hover:bg-[#273549] text-slate-300 text-[9px] sm:text-[10px] font-bold border-b-2 border-[#0F172A] shadow-md active:translate-y-0.5 transition-all">
+                <button 
+                  onClick={handleClear} 
+                  className={cn(
+                    "w-10 sm:w-12 h-7 sm:h-8 rounded-lg text-[9px] sm:text-[10px] font-black border-b-2 transition-all active:border-b-0 active:translate-y-[2px]",
+                    isDarkMode ? "bg-[#1E293B] text-slate-300 border-[#0F172A]" : "bg-slate-200 text-slate-600 border-slate-300"
+                  )}>
                   ON
                 </button>
               </div>
@@ -1248,7 +1311,10 @@ export default function App() {
             </div>
 
             {/* Numpad Area – fills remaining keypad space */}
-            <div className="flex-1 min-h-0 grid grid-rows-4 gap-1.5 bg-[#131A2A]/50 p-2 rounded-xl border border-slate-800/50">
+            <div className={cn(
+              "flex-1 min-h-0 grid grid-rows-4 gap-1.5 p-2 rounded-xl border transition-all",
+              isDarkMode ? "bg-[#131A2A]/50 border-slate-800/50" : "bg-slate-100/50 border-slate-200"
+            )}>
               {numpadRows.map((row, rIdx) => (
                 <div key={rIdx} className="grid grid-cols-5 gap-2 sm:gap-3">
                   {row.map((btn, cIdx) => renderNumButton(btn, cIdx))}
@@ -1262,42 +1328,67 @@ export default function App() {
         {isSidebarOpen && (
           <div id="sidebar-panel" className={cn(
             // Mobile: full-screen overlay
-            "fixed inset-0 z-50 flex flex-col bg-[#1a1a2e]",
+            "fixed inset-0 z-50 flex flex-col transition-all duration-500",
+            isDarkMode ? "bg-[#1a1a2e]" : "bg-white",
             // Desktop: sits beside calculator, full height
-            "md:relative md:inset-auto md:z-auto md:flex-1 md:min-w-[400px] md:overflow-hidden md:border-l md:border-slate-800/60"
+            "md:relative md:inset-auto md:z-auto md:flex-1 md:min-w-[400px] md:overflow-hidden md:border-l",
+            isDarkMode ? "md:border-slate-800/60" : "md:border-slate-200 shadow-[-10px_0_30px_rgba(0,0,0,0.05)]"
           )}>
             
             {/* Tabs & Mobile Close */}
-            <div className="flex items-center border-b border-slate-800/60 bg-[#1e1e2f]">
+            <div className={cn(
+              "flex items-center border-b transition-all",
+              isDarkMode ? "border-slate-800/60 bg-[#1e1e2f]" : "border-slate-200 bg-slate-50"
+            )}>
               <div className="flex-1 flex p-3 gap-2 overflow-x-auto hide-scrollbar">
-              <button 
-                onClick={() => setActiveTab('steps')} 
-                className={cn("px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap", activeTab === 'steps' ? 'bg-blue-600/20 text-blue-400 shadow-sm border border-blue-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50')}
-              >
-              <BookOpen className="w-4 h-4" /> Logic Steps
-            </button>
-            <button 
-              onClick={() => setActiveTab('graph')} 
-              className={cn("px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap", activeTab === 'graph' ? 'bg-emerald-600/20 text-emerald-400 shadow-sm border border-emerald-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50')}
-            >
-              <Activity className="w-4 h-4" /> Graph Viewer
-            </button>
-            <button 
-              onClick={() => setActiveTab('history')} 
-              className={cn("px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap", activeTab === 'history' ? 'bg-purple-600/20 text-purple-400 shadow-sm border border-purple-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50')}
-            >
-              <History className="w-4 h-4" /> History
-            </button>
-            <button 
-              onClick={() => setActiveTab('guide')} 
-              className={cn("px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap", activeTab === 'guide' ? 'bg-cyan-600/20 text-cyan-400 shadow-sm border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50')}
-            >
-                <BookOpen className="w-4 h-4" /> Guide
-              </button>
+                <button 
+                  onClick={() => setActiveTab('steps')} 
+                  className={cn(
+                    "px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap uppercase tracking-widest", 
+                    activeTab === 'steps' 
+                      ? (isDarkMode ? 'bg-blue-600/20 text-blue-400 border border-blue-500/20' : 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm') 
+                      : (isDarkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50')
+                  )}
+                >
+                  <BookOpen className="w-3.5 h-3.5" /> STEPS
+                </button>
+                <button 
+                  onClick={() => setActiveTab('graph')} 
+                  className={cn(
+                    "px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap uppercase tracking-widest", 
+                    activeTab === 'graph' 
+                      ? (isDarkMode ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm') 
+                      : (isDarkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50')
+                  )}
+                >
+                  <Activity className="w-3.5 h-3.5" /> GRAPH
+                </button>
+                <button 
+                  onClick={() => setActiveTab('history')} 
+                  className={cn(
+                    "px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap uppercase tracking-widest", 
+                    activeTab === 'history' 
+                      ? (isDarkMode ? 'bg-purple-600/20 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-200 shadow-sm') 
+                      : (isDarkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50')
+                  )}
+                >
+                  <History className="w-3.5 h-3.5" /> LOGS
+                </button>
+                <button 
+                  onClick={() => setActiveTab('guide')} 
+                  className={cn(
+                    "px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap uppercase tracking-widest", 
+                    activeTab === 'guide' 
+                      ? (isDarkMode ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/20' : 'bg-cyan-100 text-cyan-700 border border-cyan-200 shadow-sm') 
+                      : (isDarkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/50')
+                  )}
+                >
+                  <BookOpen className="w-3.5 h-3.5" /> GUIDE
+                </button>
               </div>
               <button 
                 onClick={() => setIsSidebarOpen(false)}
-                className="md:hidden p-4 text-slate-400 hover:text-white"
+                className={cn("md:hidden p-4 transition-colors", isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-400 hover:text-slate-900")}
               >
                 <X className="w-6 h-6" />
               </button>
@@ -1911,7 +2002,7 @@ export default function App() {
           height: 220px;
           border-radius: 50%;
           filter: blur(80px);
-          opacity: 0.18;
+          opacity: ${isDarkMode ? '0.18' : '0.08'};
           animation: aurora-sweep 18s ease-in-out infinite alternate;
         }
         .aurora-band-1 {
@@ -1924,14 +2015,12 @@ export default function App() {
           top: 30%; left: -30%;
           animation-duration: 22s;
           animation-delay: -6s;
-          opacity: 0.12;
         }
         .aurora-band-3 {
           background: linear-gradient(90deg, #7c3aed, #ec4899, #2563eb);
           bottom: -60px; left: -40%;
           animation-duration: 19s;
           animation-delay: -11s;
-          opacity: 0.14;
         }
         @keyframes aurora-sweep {
           0%   { transform: translateX(0%) scaleY(1); }
