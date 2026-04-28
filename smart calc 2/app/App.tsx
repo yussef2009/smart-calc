@@ -1108,14 +1108,20 @@ export default function App() {
 
 
       {/* ── MAIN AREA ── */}
-      <div id="main-area" className="flex flex-1 overflow-hidden min-h-0">
+      <div id="main-area" className={cn(
+        "flex flex-1 overflow-hidden min-h-0 transition-all duration-700",
+        "md:justify-center md:items-center md:gap-8 md:px-12 md:py-6"
+      )}>
 
         {/* ── CALCULATOR PANEL ── fixed 420 px wide, full remaining height */}
         <div
           id="calculator-panel"
           className={cn(
             "flex-shrink-0 w-full md:w-[420px] h-full flex flex-col min-h-0 transition-all duration-500",
-            isDarkMode ? "bg-[#1e1e2f] border-r border-slate-800/60" : "bg-white border-r border-slate-200 shadow-2xl shadow-slate-200"
+            isDarkMode 
+              ? "bg-[#1e1e2f] border border-slate-800/60 shadow-2xl shadow-black/40" 
+              : "bg-white border border-slate-200 shadow-2xl shadow-slate-200",
+            "md:rounded-[32px] overflow-hidden" // Round corners on desktop
           )}
         >
           
@@ -1331,8 +1337,11 @@ export default function App() {
             "fixed inset-0 z-50 flex flex-col transition-all duration-500",
             isDarkMode ? "bg-[#1a1a2e]" : "bg-white",
             // Desktop: sits beside calculator, full height
-            "md:relative md:inset-auto md:z-auto md:flex-1 md:min-w-[400px] md:overflow-hidden md:border-l",
-            isDarkMode ? "md:border-slate-800/60" : "md:border-slate-200 shadow-[-10px_0_30px_rgba(0,0,0,0.05)]"
+            "md:relative md:inset-auto md:z-auto md:flex-1 md:min-w-[400px] md:max-w-[500px] md:h-full md:overflow-hidden md:border",
+            isDarkMode 
+              ? "md:border-slate-800/60 md:bg-[#1a1a2e]/80 md:backdrop-blur-xl" 
+              : "md:border-slate-200 md:bg-white/80 md:backdrop-blur-xl md:shadow-2xl md:shadow-black/5",
+            "md:rounded-[32px]" // Round corners on desktop
           )}>
             
             {/* Tabs & Mobile Close */}
