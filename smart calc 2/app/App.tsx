@@ -81,7 +81,7 @@ export default function App() {
   const [calcMode, setCalcMode] = useState<CalcMode>('COMP');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile menu state
+
   
   // OCR State
   const [isScanning, setIsScanning] = useState(false);
@@ -964,126 +964,136 @@ export default function App() {
   }
 
   return (
-    <div className={cn("min-h-[100dvh] font-sans selection:bg-blue-500/30 flex flex-col items-center transition-all duration-300", isDarkMode ? "bg-[#0f172a] text-slate-200" : "bg-slate-200 text-slate-800")}>
+    <div className="h-[100dvh] flex flex-col font-sans selection:bg-blue-500/30 overflow-hidden text-slate-200 bg-[#070b14]">
       
       {/* SYSTEM TOP BAR */}
-      <div className="w-full bg-[#1A2235]/80 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 py-2 sm:py-0 sm:h-12 flex flex-col sm:flex-row sm:items-center justify-between z-[100] sticky top-0 shadow-xl">
-        <div className="flex items-center justify-between w-full sm:w-auto">
-          <div className="flex items-center gap-2.5">
-             <div className="w-7 h-7 rounded-lg flex items-center justify-center">
-               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
-             </div>
-             <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase opacity-80">SmartCalc OS</span>
+      <div className="w-full h-12 flex-shrink-0 bg-[#1A2235]/90 backdrop-blur-md border-b border-white/5 px-4 flex items-center justify-between z-[100] shadow-xl">
+        {/* Left: logo */}
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(37,99,235,0.5)]" />
           </div>
-          
-          <button 
-            className="sm:hidden text-white/70 hover:text-white"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            <ChevronDown className={cn("w-5 h-5 transition-transform", isMobileMenuOpen && "rotate-180")} />
+          <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase opacity-80 hidden sm:block">SmartCalc OS</span>
+        </div>
+
+        {/* Right: controls */}
+        <div className="flex items-center gap-3">
+          <span className="hidden md:block text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-blue-400 cursor-pointer transition-colors" onClick={() => setShowWindowSettings(true)}>Settings</span>
+          <div className="h-4 w-px bg-white/10 hidden md:block" />
+
+          {/* Theme */}
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 transition-all">
+            {isDarkMode ? '☀️' : '🌙'}
           </button>
-        </div>
 
-        <div className={cn("flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mt-4 sm:mt-0 overflow-hidden transition-all duration-300", 
-            isMobileMenuOpen ? "max-h-64 opacity-100" : "max-h-0 sm:max-h-64 opacity-0 sm:opacity-100"
-        )}>
-          
-          <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-full sm:w-auto justify-center sm:justify-start">
-             <span className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => {setIsMobileMenuOpen(false); setIsSidebarOpen(false);}}>Calculator</span>
-             <span className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => {setIsMobileMenuOpen(false); setShowWindowSettings(true);}}>Settings</span>
+          <div className="h-4 w-px bg-white/10" />
+
+          {/* Account */}
+          <div className="relative">
+            {user ? (
+              <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 transition-all group">
+                <img src={user.photoURL || ''} alt="Avatar" className="w-6 h-6 rounded-full border-2 border-blue-400/50" />
+                <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase hidden sm:block">{user.displayName?.split(' ')[0]}</span>
+                <ChevronDown className={cn("w-3 h-3 text-blue-400/50 transition-transform", showUserMenu && "rotate-180")} />
+              </button>
+            ) : (
+              <button onClick={() => setIsAuthModalOpen(true)} className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20">
+                SIGN IN
+              </button>
+            )}
+            {showUserMenu && user && (
+              <div className="absolute right-0 mt-3 w-56 bg-[#1e1e2f] border border-white/5 rounded-2xl shadow-2xl z-[200] py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="px-5 py-3 border-b border-white/5 mb-2 bg-white/5">
+                  <p className="text-xs font-bold text-white truncate">{user.displayName}</p>
+                  <p className="text-[10px] text-slate-500 truncate mt-0.5">{user.email}</p>
+                </div>
+                <button onClick={() => { toggleSidebar('history'); setShowUserMenu(false); }} className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all">
+                  <History className="w-3.5 h-3.5" /> USER LOGS
+                </button>
+                <button onClick={() => { setShowWindowSettings(true); setShowUserMenu(false); }} className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all">
+                  <Settings className="w-3.5 h-3.5" /> SYSTEM PREFS
+                </button>
+                <div className="h-px bg-white/5 my-2" />
+                <button onClick={() => { logout(); setShowUserMenu(false); }} className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-all">
+                  <LogOut className="w-3.5 h-3.5" /> TERMINATE SESSION
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="h-px w-full sm:h-4 sm:w-px bg-white/10" />
-
-          <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-end pb-2 sm:pb-0">
-             {/* Theme Toggle */}
-             <button 
-               onClick={() => setIsDarkMode(!isDarkMode)}
-               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-all"
-             >
-               {isDarkMode ? '☀️' : '🌙'}
-             </button>
-
-             <div className="h-4 w-px bg-white/10 hidden sm:block" />
-
-             {/* Account Section */}
-             <div className="relative">
-                {user ? (
-                  <button 
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center gap-2.5 pl-1.5 pr-3 py-1 rounded-full bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 transition-all group"
-                  >
-                    <img src={user.photoURL || ''} alt="Avatar" className="w-6 h-6 rounded-full border-2 border-blue-400/50 group-hover:scale-105 transition-transform" />
-                    <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase">{user.displayName?.split(' ')[0]}</span>
-                    <ChevronDown className={cn("w-3 h-3 text-blue-400/50 transition-transform", showUserMenu && "rotate-180")} />
-                  </button>
-                ) : (
-                  <button 
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
-                  >
-                    SIGN IN
-                  </button>
-                )}
-
-                {showUserMenu && user && (
-                  <div className="absolute right-0 sm:right-auto mt-3 w-56 bg-[#1e1e2f] border border-white/5 rounded-2xl shadow-2xl z-[100] py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="px-5 py-3 border-b border-white/5 mb-2 bg-white/5">
-                      <p className="text-xs font-bold text-white truncate">{user.displayName}</p>
-                      <p className="text-[10px] text-slate-500 truncate mt-0.5">{user.email}</p>
-                    </div>
-                    <button 
-                      onClick={() => { toggleSidebar('history'); setShowUserMenu(false); setIsMobileMenuOpen(false); }}
-                      className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
-                    >
-                      <History className="w-3.5 h-3.5" />
-                      USER LOGS
-                    </button>
-                    <button 
-                      onClick={() => { setShowWindowSettings(true); setShowUserMenu(false); setIsMobileMenuOpen(false); }}
-                      className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 flex items-center gap-3 transition-all"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                      SYSTEM PREFS
-                    </button>
-                    <div className="h-px bg-white/5 my-2" />
-                    <button 
-                      onClick={() => { logout(); setShowUserMenu(false); setIsMobileMenuOpen(false); }}
-                      className="w-full text-left px-5 py-2.5 text-[11px] font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-all"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      TERMINATE SESSION
-                    </button>
-                  </div>
-                )}
-             </div>
-
-             {/* Time Display */}
-             <div className="h-4 w-px bg-white/10 hidden sm:block" />
-             <div className="hidden sm:flex flex-col items-end leading-none">
-                <span className="text-[10px] font-black text-white tracking-widest uppercase">
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <span className="text-[8px] font-bold text-slate-500 mt-0.5">
-                  {new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                </span>
-             </div>
+          {/* Time */}
+          <div className="h-4 w-px bg-white/10 hidden sm:block" />
+          <div className="hidden sm:flex flex-col items-end leading-none">
+            <span className="text-[10px] font-black text-white tracking-widest uppercase">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="text-[8px] font-bold text-slate-500 mt-0.5">{new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
           </div>
         </div>
       </div>
 
-      {/* Animated Background */}
-      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
-        <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" style={{animationDuration: '8s'}} />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-emerald-600/10 rounded-full blur-[150px] animate-pulse" style={{animationDuration: '12s'}} />
-        <div className="absolute top-[30%] left-[60%] w-[30vw] h-[30vw] bg-purple-600/5 rounded-full blur-[100px] animate-pulse" style={{animationDuration: '10s'}} />
+      {/* ====== RICH MOTION BACKGROUND ====== */}
+      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden bg-[#070b14]">
+
+        {/* Layer 1 – Aurora sweeping bands */}
+        <div className="aurora-band aurora-band-1" />
+        <div className="aurora-band aurora-band-2" />
+        <div className="aurora-band aurora-band-3" />
+
+        {/* Layer 2 – Large drifting orbs */}
+        <div className="orb orb-blue" />
+        <div className="orb orb-purple" />
+        <div className="orb orb-teal" />
+        <div className="orb orb-pink" />
+
+        {/* Layer 3 – Perspective grid scrolling toward viewer */}
+        <div className="grid-perspective" />
+
+        {/* Layer 4 – Floating math symbols */}
+        {['∑','∫','π','√','∞','Δ','∂','λ','α','θ','≡','∇'].map((sym, i) => (
+          <span
+            key={i}
+            className="math-symbol"
+            style={{
+              left: `${(i * 8.5) % 100}%`,
+              animationDelay: `${i * 1.3}s`,
+              animationDuration: `${18 + i * 2}s`,
+              fontSize: `${14 + (i % 5) * 6}px`,
+            }}
+          >
+            {sym}
+          </span>
+        ))}
+
+        {/* Layer 5 – Star-like rising particles */}
+        {[...Array(30)].map((_, i) => (
+          <div
+            key={i}
+            className="star-particle"
+            style={{
+              left: `${(i * 3.4) % 100}%`,
+              bottom: `${Math.floor(i * 7.7) % 60}%`,
+              width: `${1 + (i % 3)}px`,
+              height: `${1 + (i % 3)}px`,
+              animationDelay: `${(i * 0.7) % 8}s`,
+              animationDuration: `${6 + (i % 8)}s`,
+            }}
+          />
+        ))}
+
       </div>
 
-      <div className={cn("flex-1 w-full flex flex-col p-0 sm:p-6 md:p-8 transition-all duration-300")}>
-        <div className={cn("w-full flex-1 md:h-[90vh] md:min-h-[600px] flex flex-col md:flex-row gap-6 mx-auto transition-all duration-500 ease-in-out", isSidebarOpen ? "max-w-6xl" : "max-w-[420px]", !isDarkMode && "invert hue-rotate-180")}>
-        
-        {/* LEFT PANEL: Calculator */}
-        <div className="w-full flex-1 md:w-[420px] md:h-auto flex-shrink-0 flex flex-col bg-[#1e1e2f] md:rounded-3xl shadow-2xl shadow-blue-900/10 border-b md:border border-slate-800/60 overflow-hidden relative z-10 transition-all duration-300">
+
+      {/* ── MAIN AREA ── */}
+      <div id="main-area" className="flex flex-1 overflow-hidden min-h-0">
+
+        {/* ── CALCULATOR PANEL ── fixed 420 px wide, full remaining height */}
+        <div
+          id="calculator-panel"
+          className={cn(
+            "flex-shrink-0 w-full md:w-[420px] h-full flex flex-col min-h-0 bg-[#1e1e2f]",
+            "border-r border-slate-800/60 overflow-hidden",
+            !isDarkMode && "invert hue-rotate-180"
+          )}
+        >
           
           {/* Header */}
           <div className="px-4 py-3 border-b border-slate-800/60 flex items-center justify-between bg-[#1A2235]">
@@ -1143,7 +1153,7 @@ export default function App() {
           <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
           {/* Display */}
-          <div className="bg-[#e6f0ea] p-4 pt-6 min-h-[120px] flex flex-col justify-end items-end relative shadow-inner mx-4 mt-2 mb-4 rounded border-2 border-slate-600/30">
+          <div className="bg-[#e6f0ea] p-3 pt-5 h-[105px] flex-shrink-0 flex flex-col justify-end items-end relative shadow-inner mx-3 mt-2 mb-3 rounded border-2 border-slate-600/30">
             {/* Top LCD Status Bar */}
             <div className="absolute top-2 left-3 right-3 flex justify-between items-start text-[#558870] font-mono text-[10px] sm:text-xs font-bold tracking-widest opacity-90 select-none">
               <div className="flex gap-3 items-center">
@@ -1170,22 +1180,22 @@ export default function App() {
 
             <div 
               ref={displayRef}
-              className="w-full overflow-x-auto overflow-y-hidden text-right whitespace-nowrap scrollbar-hide mb-1 mt-2"
+              className="w-full overflow-x-auto overflow-y-hidden text-right whitespace-nowrap scrollbar-hide mb-1"
             >
-              <div className="text-3xl sm:text-4xl font-mono text-[#0d1f15] font-semibold tracking-wider min-h-[40px]">
+              <div className="text-2xl sm:text-3xl font-mono text-[#0d1f15] font-semibold tracking-wider min-h-[36px]">
                 {expression || <span className="opacity-30">0</span>}
               </div>
             </div>
-            <div className="text-xl font-mono text-[#558870] font-semibold h-7 transition-all">
+            <div className="text-lg font-mono text-[#558870] font-semibold h-6 transition-all">
               {result && (result === 'Error' ? <span className="text-red-600">Error</span> : `= ${result}`)}
             </div>
           </div>
 
-          {/* Keypad */}
-          <div className="flex flex-col flex-1 bg-[#161D2E] p-3 sm:p-4 rounded-b-[24px] shadow-[inset_0_10px_20px_-10px_rgba(0,0,0,0.5)] overflow-y-auto scrollbar-hide">
+          {/* Keypad – fills remaining height, content scales inside */}
+          <div className="flex flex-col flex-1 min-h-0 bg-[#161D2E] p-2 sm:p-3 overflow-hidden">
             
             {/* TOP ROW: SHIFT, ALPHA, MODE, ON */}
-            <div className="flex justify-between items-start mb-4 px-1 flex-shrink-0">
+            <div className="flex justify-between items-start mb-2 px-1 flex-shrink-0">
               <div className="flex gap-3 sm:gap-4">
                 <div className="flex flex-col items-center">
                   <button 
@@ -1229,7 +1239,7 @@ export default function App() {
             </div>
 
             {/* Scientific Area */}
-            <div className="flex flex-col gap-[2px] sm:gap-1 mb-4 flex-shrink-0">
+            <div className="flex flex-col gap-[1px] sm:gap-[2px] mb-2 flex-shrink-0">
               {sciRows.map((row, rIdx) => (
                 <div key={rIdx} className={cn("grid gap-1 sm:gap-2", row.length === 5 ? "grid-cols-5" : "grid-cols-6")}>
                   {row.map((btn, cIdx) => renderSciButton(btn, cIdx))}
@@ -1237,8 +1247,8 @@ export default function App() {
               ))}
             </div>
 
-            {/* Numpad Area */}
-            <div className="flex-1 grid grid-rows-4 gap-2 sm:gap-3 bg-[#131A2A]/50 p-2 sm:p-3 rounded-xl shadow-inner border border-slate-800/50 flex-shrink-0 min-h-[220px]">
+            {/* Numpad Area – fills remaining keypad space */}
+            <div className="flex-1 min-h-0 grid grid-rows-4 gap-1.5 bg-[#131A2A]/50 p-2 rounded-xl border border-slate-800/50">
               {numpadRows.map((row, rIdx) => (
                 <div key={rIdx} className="grid grid-cols-5 gap-2 sm:gap-3">
                   {row.map((btn, cIdx) => renderNumButton(btn, cIdx))}
@@ -1248,9 +1258,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* RIGHT PANEL: Context / Features */}
+        {/* ── SIDEBAR PANEL ── */}
         {isSidebarOpen && (
-          <div className="flex-1 flex flex-col bg-[#252538] md:rounded-3xl border-t md:border border-slate-800/60 overflow-hidden shadow-xl animate-in slide-in-from-right-8 duration-300 fixed inset-0 z-50 md:relative md:inset-auto md:z-0">
+          <div id="sidebar-panel" className={cn(
+            // Mobile: full-screen overlay
+            "fixed inset-0 z-50 flex flex-col bg-[#1a1a2e]",
+            // Desktop: sits beside calculator, full height
+            "md:relative md:inset-auto md:z-auto md:flex-1 md:min-w-[400px] md:overflow-hidden md:border-l md:border-slate-800/60"
+          )}>
             
             {/* Tabs & Mobile Close */}
             <div className="flex items-center border-b border-slate-800/60 bg-[#1e1e2f]">
@@ -1288,8 +1303,8 @@ export default function App() {
               </button>
             </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+          {/* Tab Content – this is the scrollable area */}
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
             
             {/* STEPS TAB */}
             {activeTab === 'steps' && (
@@ -1636,10 +1651,9 @@ export default function App() {
         </div>
         )}
       </div>
-    </div>
 
-    {/* MODE SELECTION MODAL */}
-    {showModeSelection && (
+      {/* MODALS */}
+      {showModeSelection && (
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] backdrop-blur-md">
         <div className="bg-[#1e1e2f] border border-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-2xl w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between mb-8">
@@ -1867,12 +1881,130 @@ export default function App() {
       )}
 
       <style>{`
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
+        /* ---- scrollbar hide ---- */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ---- Custom Scrollbar ---- */
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
         }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.02);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(59, 130, 246, 0.5);
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+        }
+
+        /* ---- Aurora bands ---- */
+        .aurora-band {
+          position: absolute;
+          width: 200%;
+          height: 220px;
+          border-radius: 50%;
+          filter: blur(80px);
+          opacity: 0.18;
+          animation: aurora-sweep 18s ease-in-out infinite alternate;
+        }
+        .aurora-band-1 {
+          background: linear-gradient(90deg, #1a56ff, #7c3aed, #06b6d4);
+          top: -60px; left: -50%;
+          animation-duration: 16s;
+        }
+        .aurora-band-2 {
+          background: linear-gradient(90deg, #0ea5e9, #8b5cf6, #10b981);
+          top: 30%; left: -30%;
+          animation-duration: 22s;
+          animation-delay: -6s;
+          opacity: 0.12;
+        }
+        .aurora-band-3 {
+          background: linear-gradient(90deg, #7c3aed, #ec4899, #2563eb);
+          bottom: -60px; left: -40%;
+          animation-duration: 19s;
+          animation-delay: -11s;
+          opacity: 0.14;
+        }
+        @keyframes aurora-sweep {
+          0%   { transform: translateX(0%) scaleY(1); }
+          50%  { transform: translateX(15%) scaleY(1.3); }
+          100% { transform: translateX(-10%) scaleY(0.8); }
+        }
+
+        /* ---- Drifting orbs ---- */
+        .orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(110px);
+          animation: orb-drift 24s ease-in-out infinite alternate;
+        }
+        .orb-blue   { width: 45vw; height: 45vw; background: #2563eb33; top: -15%; left: -10%; animation-duration: 22s; }
+        .orb-purple { width: 35vw; height: 35vw; background: #7c3aed33; top: 25%; right: -10%; animation-duration: 28s; animation-delay: -8s; }
+        .orb-teal   { width: 50vw; height: 50vw; background: #0d9488/20; bottom: -20%; left: 15%; animation-duration: 32s; animation-delay: -14s; }
+        .orb-pink   { width: 28vw; height: 28vw; background: #db277733; top: 55%; left: 55%; animation-duration: 20s; animation-delay: -4s; }
+        @keyframes orb-drift {
+          0%   { transform: translate(0, 0) scale(1); }
+          33%  { transform: translate(40px, -60px) scale(1.15); }
+          66%  { transform: translate(-30px, 30px) scale(0.88); }
+          100% { transform: translate(20px, -20px) scale(1.05); }
+        }
+
+        /* ---- Perspective scrolling grid ---- */
+        .grid-perspective {
+          position: absolute;
+          inset: -200%;
+          background-image:
+            linear-gradient(to right, rgba(99,102,241,0.12) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(99,102,241,0.12) 1px, transparent 1px);
+          background-size: 50px 50px;
+          transform: perspective(600px) rotateX(65deg) translateY(-20%);
+          transform-origin: center top;
+          animation: grid-scroll 6s linear infinite;
+        }
+        @keyframes grid-scroll {
+          from { background-position: 0 0; }
+          to   { background-position: 0 50px; }
+        }
+
+        /* ---- Floating math symbols ---- */
+        .math-symbol {
+          position: absolute;
+          bottom: -60px;
+          color: rgba(139,92,246,0.35);
+          font-family: 'Georgia', serif;
+          font-weight: bold;
+          user-select: none;
+          animation: sym-rise linear infinite;
+        }
+        @keyframes sym-rise {
+          0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+          10%  { opacity: 1; }
+          85%  { opacity: 0.6; }
+          100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+        }
+
+        /* ---- Rising star particles ---- */
+        .star-particle {
+          position: absolute;
+          background: white;
+          border-radius: 50%;
+          opacity: 0;
+          box-shadow: 0 0 4px 1px rgba(139,92,246,0.6);
+          animation: star-rise linear infinite;
+        }
+        @keyframes star-rise {
+          0%   { transform: translateY(0); opacity: 0; }
+          15%  { opacity: 0.8; }
+          85%  { opacity: 0.5; }
+          100% { transform: translateY(-80vh); opacity: 0; }
         }
       `}</style>
     </div>
