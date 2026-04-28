@@ -918,7 +918,7 @@ export default function App() {
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-8 sm:h-9 rounded-lg text-[11px] font-bold shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
+            "w-full h-7 sm:h-7.5 rounded-lg text-[10px] font-bold shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
             baseClass,
             specialClass
           )}
@@ -959,7 +959,7 @@ export default function App() {
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-11 sm:h-12 rounded-xl text-xl font-black shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
+            "w-full h-9 sm:h-10 rounded-xl text-lg font-black shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
             variantClass
           )}
         >
@@ -1239,7 +1239,7 @@ export default function App() {
 
           {/* Keypad – fills remaining height, content scales inside */}
           <div className={cn(
-            "flex flex-col flex-1 min-h-0 p-2 sm:p-4 overflow-hidden transition-all duration-500",
+            "flex flex-col flex-1 min-h-0 p-2 sm:p-3 overflow-hidden transition-all duration-500",
             isDarkMode ? "bg-[#161D2E] shadow-[inset_0_10px_30px_rgba(0,0,0,0.5)]" : "bg-slate-50 shadow-[inset_0_1px_10px_rgba(0,0,0,0.05)]"
           )}>
             
@@ -1276,7 +1276,7 @@ export default function App() {
               
               {/* Nav Pad area (Visual) */}
               <div className={cn(
-                "relative w-16 sm:w-20 h-14 sm:h-16 rounded-full flex flex-col items-center justify-center -mt-1 shadow-inner border-2 transition-all",
+                "relative w-14 sm:w-16 h-12 sm:h-14 rounded-full flex flex-col items-center justify-center -mt-1 shadow-inner border-2 transition-all",
                 isDarkMode ? "bg-[#1A2235] border-[#0F172A]" : "bg-slate-200 border-slate-300 shadow-slate-300"
               )}>
                  <div className="absolute top-1 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-slate-400" />
@@ -1318,7 +1318,7 @@ export default function App() {
 
             {/* Numpad Area – fills remaining keypad space */}
             <div className={cn(
-              "flex-1 min-h-0 grid grid-rows-4 gap-1.5 p-2 rounded-xl border transition-all",
+              "flex-1 min-h-0 grid grid-rows-4 gap-1 p-2 rounded-xl border transition-all",
               isDarkMode ? "bg-[#131A2A]/50 border-slate-800/50" : "bg-slate-100/50 border-slate-200"
             )}>
               {numpadRows.map((row, rIdx) => (
