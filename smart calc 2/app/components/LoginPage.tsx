@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { LogIn, Sparkles, BrainCircuit, Globe, Mail, Lock, User, ArrowRight, ShieldCheck } from 'lucide-react';
 
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, useSpring } from 'motion/react';
+import { useEffect } from 'react';
 
 export function LoginPage() {
   const { signInWithGoogle, loginAsGuest, signInWithEmail, signUpWithEmail } = useAuth();
@@ -12,6 +13,26 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Mouse tracking for interactive background
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Smooth springs for mouse movement
+  const springConfig = { damping: 25, stiffness: 150 };
+  const smoothX = useSpring(mouseX, springConfig);
+  const smoothY = useSpring(mouseY, springConfig);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseX.set(e.clientX);
+      mouseY.set(e.clientY);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [mouseX, mouseY]);
+
+  const mathSymbols = ['+', '−', '×', '÷', '√', 'π', '∫', 'Σ', '∞', '∆', 'θ', 'λ'];
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -42,64 +63,105 @@ export function LoginPage() {
   return (
     <div className="fixed inset-0 bg-[#020205] flex items-center justify-center overflow-hidden font-sans selection:bg-blue-500/30 selection:text-white">
       {/* Dynamic Background Shapes */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        {/* Animated Gradient Mesh Blobs */}
         <motion.div
           animate={{
+            x: [0, 100, 0],
+            y: [0, 50, 0],
             scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            x: [0, 50, 0],
-            y: [0, -50, 0],
           }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-          className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-blue-600/20 blur-[120px] rounded-full"
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-blue-600/15 blur-[120px] rounded-full"
         />
         <motion.div
           animate={{
-            scale: [1, 1.1, 1],
-            rotate: [0, -45, 0],
-            x: [0, -30, 0],
-            y: [0, 40, 0],
+            x: [0, -80, 0],
+            y: [0, 120, 0],
+            scale: [1.1, 0.9, 1.1],
           }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear"
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-purple-600/15 blur-[120px] rounded-full"
+        />
+        <motion.div
+          animate={{
+            x: [0, 40, 0],
+            y: [0, -60, 0],
           }}
-          className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-purple-600/20 blur-[120px] rounded-full"
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[20%] right-[10%] w-[40%] h-[40%] bg-cyan-500/10 blur-[100px] rounded-full"
+        />
+
+        {/* Mouse Following Glow */}
+        <motion.div
+          style={{
+            x: smoothX,
+            y: smoothY,
+            translateX: '-50%',
+            translateY: '-50%',
+          }}
+          className="absolute w-[600px] h-[600px] bg-blue-500/10 blur-[150px] rounded-full"
         />
         
-        {/* Subtle Grid */}
+        {/* Subtle Grid with Radial Mask */}
         <div 
-          className="absolute inset-0 opacity-[0.05]" 
+          className="absolute inset-0 opacity-[0.07]" 
           style={{ 
             backgroundImage: `linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)`,
-            backgroundSize: '50px 50px' 
+            backgroundSize: '40px 40px',
+            maskImage: 'radial-gradient(circle at center, black, transparent 80%)',
+            WebkitMaskImage: 'radial-gradient(circle at center, black, transparent 80%)'
           }}
         />
 
-        {/* Animated Particles */}
-        {[...Array(20)].map((_, i) => (
+        {/* Floating Mathematical Symbols */}
+        {mathSymbols.map((symbol, i) => (
           <motion.div
             key={i}
             initial={{ 
-              x: Math.random() * window.innerWidth, 
-              y: Math.random() * window.innerHeight,
+              x: Math.random() * 100 + '%', 
+              y: Math.random() * 100 + '%',
+              opacity: 0,
+              rotate: Math.random() * 360
+            }}
+            animate={{
+              y: [null, '-=100'],
+              opacity: [0, 0.15, 0],
+              rotate: [null, Math.random() * 360 + 180]
+            }}
+            transition={{
+              duration: Math.random() * 20 + 20,
+              repeat: Infinity,
+              ease: "linear",
+              delay: Math.random() * -20
+            }}
+            className="absolute text-2xl font-serif text-blue-300 pointer-events-none select-none"
+          >
+            {symbol}
+          </motion.div>
+        ))}
+
+        {/* Animated Particles (Enhanced) */}
+        {[...Array(30)].map((_, i) => (
+          <motion.div
+            key={`p-${i}`}
+            initial={{ 
+              x: Math.random() * 100 + '%', 
+              y: '110%',
               opacity: Math.random() * 0.5
             }}
             animate={{
-              y: [null, Math.random() * -100 - 50],
-              opacity: [null, 0]
+              y: '-10%',
+              opacity: [0, 0.5, 0],
+              x: [null, `+=${(Math.random() - 0.5) * 100}`]
             }}
             transition={{
-              duration: Math.random() * 10 + 10,
+              duration: Math.random() * 15 + 10,
               repeat: Infinity,
-              ease: "linear"
+              ease: "linear",
+              delay: Math.random() * -15
             }}
-            className="absolute w-1 h-1 bg-white rounded-full"
+            className="absolute w-0.5 h-0.5 bg-blue-400 rounded-full"
           />
         ))}
       </div>
@@ -107,41 +169,69 @@ export function LoginPage() {
       <div className="relative z-10 w-full max-w-[440px] px-6 flex flex-col items-center">
         {/* Logo Section */}
         <motion.div 
-          initial={{ y: -20, opacity: 0 }}
+          initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="text-center mb-10"
+          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+          className="text-center mb-12"
         >
-          <div className="relative inline-block mb-4">
+          <div className="relative inline-block mb-6">
             <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
-              className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl rounded-full"
+              animate={{ 
+                rotate: 360,
+                scale: [1, 1.1, 1],
+              }}
+              transition={{ 
+                rotate: { duration: 60, repeat: Infinity, ease: "linear" },
+                scale: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+              }}
+              className="absolute -inset-6 bg-gradient-to-r from-blue-600/30 via-indigo-500/20 to-purple-600/30 blur-2xl rounded-full"
             />
-            <img 
-              src="/logo.png" 
-              alt="SmartCalc Logo" 
-              className="relative w-20 h-20 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] transition-transform hover:scale-110" 
-            />
+            <motion.div
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative"
+            >
+              <img 
+                src="/logo.png" 
+                alt="SmartCalc Logo" 
+                className="w-24 h-24 drop-shadow-[0_0_30px_rgba(59,130,246,0.6)] cursor-pointer" 
+              />
+              <motion.div
+                animate={{
+                  left: ['-100%', '200%'],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  repeatDelay: 1,
+                  ease: "easeInOut",
+                }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
+              />
+            </motion.div>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-white mb-2">
-            SMART<span className="text-blue-500">CALC</span>
+          <h1 className="text-5xl font-black tracking-tighter text-white mb-3">
+            SMART<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">CALC</span>
           </h1>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em]">
-            Professional Math Engine
+          <p className="text-blue-400/60 text-[10px] font-black uppercase tracking-[0.4em]">
+            Next-Gen Mathematical Intelligence
           </p>
         </motion.div>
 
         {/* Auth Card */}
         <motion.div
           layout
-          initial={{ y: 20, opacity: 0 }}
+          initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="w-full bg-[#0d0d16]/80 backdrop-blur-3xl border border-white/10 rounded-[40px] p-10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden relative group"
+          transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full bg-[#0d0d16]/40 backdrop-blur-3xl border border-white/10 rounded-[48px] p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] overflow-hidden relative group"
         >
-          {/* Internal Glow */}
-          <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-500/10 blur-[60px] rounded-full group-hover:bg-blue-500/20 transition-colors duration-700" />
+          {/* Edge Highlight Glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+          
+          {/* Internal Glows */}
+          <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-600/10 blur-[80px] rounded-full group-hover:bg-blue-600/20 transition-colors duration-1000" />
+          <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-purple-600/10 blur-[80px] rounded-full group-hover:bg-purple-600/20 transition-colors duration-1000" />
           
           <div className="relative z-10">
             <div className="flex justify-between items-baseline mb-8">
@@ -189,7 +279,7 @@ export function LoginPage() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="John Doe"
-                        className="w-full h-13 bg-white/[0.03] hover:bg-white/[0.06] focus:bg-white/[0.08] border border-white/10 focus:border-blue-500/50 rounded-2xl pl-12 pr-4 text-sm text-white placeholder-slate-600 outline-none transition-all"
+                        className="w-full h-14 bg-white/[0.03] hover:bg-white/[0.06] focus:bg-white/[0.08] border border-white/10 focus:border-blue-500/50 rounded-2xl pl-12 pr-4 text-sm text-white placeholder-slate-600 outline-none transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
                       />
                     </div>
                   </motion.div>
@@ -206,7 +296,7 @@ export function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full h-13 bg-white/[0.03] hover:bg-white/[0.06] focus:bg-white/[0.08] border border-white/10 focus:border-blue-500/50 rounded-2xl pl-12 pr-4 text-sm text-white placeholder-slate-600 outline-none transition-all"
+                    className="w-full h-14 bg-white/[0.03] hover:bg-white/[0.06] focus:bg-white/[0.08] border border-white/10 focus:border-blue-500/50 rounded-2xl pl-12 pr-4 text-sm text-white placeholder-slate-600 outline-none transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
                   />
                 </div>
               </div>
@@ -221,23 +311,30 @@ export function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-13 bg-white/[0.03] hover:bg-white/[0.06] focus:bg-white/[0.08] border border-white/10 focus:border-blue-500/50 rounded-2xl pl-12 pr-4 text-sm text-white placeholder-slate-600 outline-none transition-all"
+                    className="w-full h-14 bg-white/[0.03] hover:bg-white/[0.06] focus:bg-white/[0.08] border border-white/10 focus:border-blue-500/50 rounded-2xl pl-12 pr-4 text-sm text-white placeholder-slate-600 outline-none transition-all shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
                   />
                 </div>
               </div>
 
               <motion.button
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ 
+                  scale: 1.02,
+                  boxShadow: "0 20px 40px -10px rgba(37,99,235,0.5)",
+                  filter: "brightness(1.1)"
+                }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-[0_10px_20px_-5px_rgba(37,99,235,0.4)] mt-4"
+                className="w-full h-14 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-[0_10px_20px_-5px_rgba(37,99,235,0.4)] mt-6 relative overflow-hidden group/btn-main"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
-                    <LogIn className="w-5 h-5" />
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-full group-hover/btn-main:translate-x-full transition-transform duration-1000"
+                    />
+                    <LogIn className="w-5 h-5 group-hover/btn-main:rotate-12 transition-transform" />
                     <span>{isSignUp ? 'Get Started' : 'Sign In'}</span>
                   </>
                 )}
@@ -252,21 +349,29 @@ export function LoginPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <motion.button
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.1)" }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ 
+                  scale: 1.05, 
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  borderColor: "rgba(255,255,255,0.2)"
+                }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleGoogleSignIn}
-                className="h-13 bg-white/[0.03] border border-white/10 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all text-white"
+                className="h-14 bg-white/[0.03] border border-white/10 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all text-white group/google"
               >
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover/google:scale-110 transition-transform" />
                 <span className="text-xs">Google</span>
               </motion.button>
               <motion.button
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.1)" }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ 
+                  scale: 1.05, 
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  borderColor: "rgba(255,255,255,0.2)"
+                }}
+                whileTap={{ scale: 0.95 }}
                 onClick={loginAsGuest}
-                className="h-13 bg-white/[0.03] border border-white/10 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all text-white"
+                className="h-14 bg-white/[0.03] border border-white/10 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all text-white group/guest"
               >
-                <Sparkles className="w-4 h-4 text-blue-400" />
+                <Sparkles className="w-4 h-4 text-blue-400 group-hover/guest:rotate-12 group-hover/guest:scale-110 transition-transform" />
                 <span className="text-xs">Guest</span>
               </motion.button>
             </div>
@@ -275,22 +380,28 @@ export function LoginPage() {
 
         {/* Features / Trust Badges */}
         <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="mt-10 flex flex-wrap justify-center gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1, duration: 0.8 }}
+          className="mt-12 flex flex-wrap justify-center gap-8"
         >
-          <div className="flex items-center gap-2 text-slate-500">
-            <ShieldCheck className="w-4 h-4" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Secure Cloud</span>
+          <div className="flex items-center gap-3 text-slate-500 group/badge cursor-default">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/5 border border-white/5 flex items-center justify-center group-hover/badge:bg-blue-500/10 group-hover/badge:border-blue-500/20 transition-all">
+              <ShieldCheck className="w-4 h-4 group-hover/badge:text-blue-400 transition-colors" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] group-hover/badge:text-slate-300 transition-colors">Secure Cloud</span>
           </div>
-          <div className="flex items-center gap-2 text-slate-500">
-            <BrainCircuit className="w-4 h-4" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">AI Reasoning</span>
+          <div className="flex items-center gap-3 text-slate-500 group/badge cursor-default">
+            <div className="w-8 h-8 rounded-xl bg-purple-500/5 border border-white/5 flex items-center justify-center group-hover/badge:bg-purple-500/10 group-hover/badge:border-purple-500/20 transition-all">
+              <BrainCircuit className="w-4 h-4 group-hover/badge:text-purple-400 transition-colors" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] group-hover/badge:text-slate-300 transition-colors">AI Reasoning</span>
           </div>
-          <div className="flex items-center gap-2 text-slate-500">
-            <Globe className="w-4 h-4" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Global Sync</span>
+          <div className="flex items-center gap-3 text-slate-500 group/badge cursor-default">
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/5 border border-white/5 flex items-center justify-center group-hover/badge:bg-cyan-500/10 group-hover/badge:border-cyan-500/20 transition-all">
+              <Globe className="w-4 h-4 group-hover/badge:text-cyan-400 transition-colors" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] group-hover/badge:text-slate-300 transition-colors">Global Sync</span>
           </div>
         </motion.div>
 

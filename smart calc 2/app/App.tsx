@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import * as math from 'mathjs';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
@@ -102,6 +103,24 @@ export default function App() {
   const { user, logout } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Mouse tracking for background parallax
+  const bgMouseX = useMotionValue(0);
+  const bgMouseY = useMotionValue(0);
+  const smoothBgX = useSpring(bgMouseX, { damping: 50, stiffness: 200 });
+  const smoothBgY = useSpring(bgMouseY, { damping: 50, stiffness: 200 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      bgMouseX.set((e.clientX / window.innerWidth) - 0.5);
+      bgMouseY.set((e.clientY / window.innerHeight) - 0.5);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  const gridRotateX = useTransform(smoothBgY, [-0.5, 0.5], [60, 70]);
+  const gridRotateY = useTransform(smoothBgX, [-0.5, 0.5], [-5, 5]);
   
   const displayRef = useRef<HTMLDivElement>(null);
 
@@ -1057,36 +1076,75 @@ export default function App() {
 
       {/* ====== RICH MOTION BACKGROUND ====== */}
       <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden bg-[#070b14]">
+        {/* Layer 1 – Dynamic Mesh Blobs */}
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            x: [0, 100, 0],
+            y: [0, 50, 0],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-blue-600/10 blur-[120px] rounded-full"
+        />
+        <motion.div
+          animate={{
+            scale: [1.1, 0.9, 1.1],
+            x: [0, -80, 0],
+            y: [0, 120, 0],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full"
+        />
+        <motion.div
+          animate={{
+            scale: [1, 1.3, 1],
+            rotate: [0, 360],
+          }}
+          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[20%] right-[10%] w-[40%] h-[40%] bg-cyan-500/5 blur-[100px] rounded-full"
+        />
 
-        {/* Layer 1 – Aurora sweeping bands */}
+        {/* Layer 2 – Interactive Perspective Grid */}
+        <motion.div 
+          style={{ 
+            rotateX: gridRotateX,
+            rotateY: gridRotateY,
+            perspective: 1000
+          }}
+          className="absolute inset-x-[-50%] bottom-[-50%] h-[150%] origin-center"
+        >
+          <div className="w-full h-full grid-perspective-enhanced" />
+        </motion.div>
+
+        {/* Layer 3 – Rising Particles & Symbols */}
+        <div className="absolute inset-0">
+          {['∑','∫','π','√','∞','Δ','∂','λ','α','θ','≡','∇'].map((sym, i) => (
+            <motion.span
+              key={i}
+              initial={{ y: '110vh', x: `${(i * 9) % 100}%`, opacity: 0 }}
+              animate={{ 
+                y: '-10vh',
+                opacity: [0, 0.3, 0],
+                rotate: [0, 360]
+              }}
+              transition={{
+                duration: 20 + i * 2,
+                repeat: Infinity,
+                ease: "linear",
+                delay: i * 1.5
+              }}
+              className="absolute text-blue-400/30 font-serif select-none pointer-events-none"
+              style={{ fontSize: `${16 + (i % 5) * 8}px` }}
+            >
+              {sym}
+            </motion.span>
+          ))}
+        </div>
+
+        {/* Layer 4 – Aurora sweeping bands (Legacy for depth) */}
         <div className="aurora-band aurora-band-1" />
         <div className="aurora-band aurora-band-2" />
         <div className="aurora-band aurora-band-3" />
-
-        {/* Layer 2 – Large drifting orbs */}
-        <div className="orb orb-blue" />
-        <div className="orb orb-purple" />
-        <div className="orb orb-teal" />
-        <div className="orb orb-pink" />
-
-        {/* Layer 3 – Perspective grid scrolling toward viewer */}
-        <div className="grid-perspective" />
-
-        {/* Layer 4 – Floating math symbols */}
-        {['∑','∫','π','√','∞','Δ','∂','λ','α','θ','≡','∇'].map((sym, i) => (
-          <span
-            key={i}
-            className="math-symbol"
-            style={{
-              left: `${(i * 8.5) % 100}%`,
-              animationDelay: `${i * 1.3}s`,
-              animationDuration: `${18 + i * 2}s`,
-              fontSize: `${14 + (i % 5) * 6}px`,
-            }}
-          >
-            {sym}
-          </span>
-        ))}
 
         {/* Layer 5 – Star-like rising particles */}
         {[...Array(30)].map((_, i) => (
@@ -1103,25 +1161,23 @@ export default function App() {
             }}
           />
         ))}
-
       </div>
-
 
       {/* ── MAIN AREA ── */}
       <div id="main-area" className={cn(
         "flex flex-1 overflow-hidden min-h-0 transition-all duration-700",
-        "md:justify-center md:items-center md:gap-8 md:px-12 md:py-6"
+        "flex-col md:flex-row md:justify-center md:items-center md:gap-8 md:px-6 lg:px-12 md:py-6"
       )}>
 
-        {/* ── CALCULATOR PANEL ── fixed 420 px wide, full remaining height */}
+        {/* ── CALCULATOR PANEL ── */}
         <div
           id="calculator-panel"
           className={cn(
-            "flex-shrink-0 w-full md:w-[420px] h-full flex flex-col min-h-0 transition-all duration-500",
+            "flex-shrink-0 w-full md:w-[420px] lg:w-[440px] h-full md:h-[90%] lg:h-[850px] flex flex-col min-h-0 transition-all duration-500",
             isDarkMode 
-              ? "bg-[#1e1e2f] border border-slate-800/60 shadow-2xl shadow-black/40" 
-              : "bg-white border border-slate-200 shadow-2xl shadow-slate-200",
-            "md:rounded-[32px] overflow-hidden" // Round corners on desktop
+              ? "bg-[#1e1e2f]/90 md:bg-[#1e1e2f] border border-slate-800/60 shadow-2xl shadow-black/40" 
+              : "bg-white/90 md:bg-white border border-slate-200 shadow-2xl shadow-slate-200",
+            "md:rounded-[40px] overflow-hidden backdrop-blur-xl md:backdrop-blur-none"
           )}
         >
           
@@ -1189,7 +1245,7 @@ export default function App() {
 
           {/* Display */}
           <div className={cn(
-            "p-4 pt-6 h-[115px] flex-shrink-0 flex flex-col justify-end items-end relative mx-3 mt-3 mb-4 rounded-xl border transition-all duration-500",
+            "p-4 pt-6 h-[100px] sm:h-[115px] flex-shrink-0 flex flex-col justify-end items-end relative mx-3 mt-3 mb-4 rounded-2xl border transition-all duration-500",
             isDarkMode 
               ? "bg-[#e6f0ea] shadow-[inset_0_2px_10px_rgba(0,0,0,0.2)] border-slate-700/50" 
               : "bg-[#fdfdfd] shadow-[0_4px_20px_-5px_rgba(0,0,0,0.1),inset_0_2px_5px_rgba(0,0,0,0.05)] border-slate-200"
@@ -2037,56 +2093,21 @@ export default function App() {
           100% { transform: translateX(-10%) scaleY(0.8); }
         }
 
-        /* ---- Drifting orbs ---- */
-        .orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(110px);
-          animation: orb-drift 24s ease-in-out infinite alternate;
-        }
-        .orb-blue   { width: 45vw; height: 45vw; background: #2563eb33; top: -15%; left: -10%; animation-duration: 22s; }
-        .orb-purple { width: 35vw; height: 35vw; background: #7c3aed33; top: 25%; right: -10%; animation-duration: 28s; animation-delay: -8s; }
-        .orb-teal   { width: 50vw; height: 50vw; background: #0d9488/20; bottom: -20%; left: 15%; animation-duration: 32s; animation-delay: -14s; }
-        .orb-pink   { width: 28vw; height: 28vw; background: #db277733; top: 55%; left: 55%; animation-duration: 20s; animation-delay: -4s; }
-        @keyframes orb-drift {
-          0%   { transform: translate(0, 0) scale(1); }
-          33%  { transform: translate(40px, -60px) scale(1.15); }
-          66%  { transform: translate(-30px, 30px) scale(0.88); }
-          100% { transform: translate(20px, -20px) scale(1.05); }
-        }
-
         /* ---- Perspective scrolling grid ---- */
-        .grid-perspective {
-          position: absolute;
-          inset: -200%;
+        .grid-perspective-enhanced {
+          width: 100%;
+          height: 100%;
           background-image:
-            linear-gradient(to right, rgba(99,102,241,0.12) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(99,102,241,0.12) 1px, transparent 1px);
-          background-size: 50px 50px;
-          transform: perspective(600px) rotateX(65deg) translateY(-20%);
-          transform-origin: center top;
-          animation: grid-scroll 6s linear infinite;
+            linear-gradient(to right, rgba(37, 99, 235, 0.15) 1.5px, transparent 1.5px),
+            linear-gradient(to bottom, rgba(37, 99, 235, 0.15) 1.5px, transparent 1.5px);
+          background-size: 60px 60px;
+          mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%);
+          -webkit-mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%);
+          animation: grid-scroll-enhanced 10s linear infinite;
         }
-        @keyframes grid-scroll {
+        @keyframes grid-scroll-enhanced {
           from { background-position: 0 0; }
-          to   { background-position: 0 50px; }
-        }
-
-        /* ---- Floating math symbols ---- */
-        .math-symbol {
-          position: absolute;
-          bottom: -60px;
-          color: rgba(139,92,246,0.35);
-          font-family: 'Georgia', serif;
-          font-weight: bold;
-          user-select: none;
-          animation: sym-rise linear infinite;
-        }
-        @keyframes sym-rise {
-          0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
-          10%  { opacity: 1; }
-          85%  { opacity: 0.6; }
-          100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+          to   { background-position: 0 60px; }
         }
 
         /* ---- Rising star particles ---- */
@@ -2095,14 +2116,14 @@ export default function App() {
           background: white;
           border-radius: 50%;
           opacity: 0;
-          box-shadow: 0 0 4px 1px rgba(139,92,246,0.6);
+          box-shadow: 0 0 6px 2px rgba(59, 130, 246, 0.4);
           animation: star-rise linear infinite;
         }
         @keyframes star-rise {
           0%   { transform: translateY(0); opacity: 0; }
           15%  { opacity: 0.8; }
           85%  { opacity: 0.5; }
-          100% { transform: translateY(-80vh); opacity: 0; }
+          100% { transform: translateY(-100vh); opacity: 0; }
         }
       `}</style>
     </div>
