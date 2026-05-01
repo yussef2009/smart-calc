@@ -21,11 +21,37 @@ const mathShapes = [
   { type: 'text', content: 'f(x)', size: '3.5rem' },
   { type: 'text', content: '!', size: '4rem' },
   { type: 'text', content: '∮', size: '5rem' },
+  { type: 'text', content: 'α', size: '3.5rem' },
+  { type: 'text', content: 'β', size: '3.5rem' },
+  { type: 'text', content: 'γ', size: '3.5rem' },
+  { type: 'text', content: 'φ', size: '4.5rem' },
+  { type: 'text', content: '±', size: '4rem' },
+  { type: 'text', content: '≤', size: '4rem' },
+  { type: 'text', content: '≥', size: '4rem' },
+  { type: 'text', content: '∝', size: '4.5rem' },
+  { type: 'text', content: '∩', size: '4rem' },
+  { type: 'text', content: '∪', size: '4rem' },
+  { type: 'text', content: '∈', size: '3.5rem' },
+  { type: 'text', content: '∉', size: '3.5rem' },
+  { type: 'text', content: '∇', size: '4.5rem' },
+  { type: 'text', content: '∃', size: '4rem' },
+  { type: 'text', content: '∀', size: '4rem' },
+  { type: 'text', content: '∏', size: '4.5rem' },
+  { type: 'text', content: '∯', size: '5rem' },
+  { type: 'text', content: 'ω', size: '3.5rem' },
+  { type: 'text', content: 'Ω', size: '4rem' },
+  { type: 'text', content: 'μ', size: '3.5rem' },
+  { type: 'text', content: 'ρ', size: '3.5rem' },
+  { type: 'text', content: 'σ', size: '3.5rem' },
+  { type: 'text', content: 'τ', size: '3.5rem' },
   { type: 'shape', content: 'circle', size: 'w-24 h-24 rounded-full border-4' },
   { type: 'shape', content: 'square', size: 'w-20 h-20 border-4' },
   { type: 'shape', content: 'triangle', size: 'w-0 h-0 border-l-[40px] border-l-transparent border-r-[40px] border-r-transparent border-b-[69px] border-b-current' },
   { type: 'shape', content: 'circle', size: 'w-16 h-16 rounded-full border-2' },
   { type: 'shape', content: 'square', size: 'w-12 h-12 border-2' },
+  { type: 'shape', content: 'circle', size: 'w-32 h-32 rounded-full border-[6px]' },
+  { type: 'shape', content: 'square', size: 'w-28 h-28 border-[6px]' },
+  { type: 'shape', content: 'triangle', size: 'w-0 h-0 border-l-[25px] border-l-transparent border-r-[25px] border-r-transparent border-b-[43px] border-b-current' },
 ];
 
 export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
@@ -74,8 +100,8 @@ export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
         />
       </div>
 
-      {/* Floating Math Shapes */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* Floating 3D Math Shapes */}
+      <div className="absolute inset-0 pointer-events-none" style={{ perspective: '1200px' }}>
         {mathShapes.map((item, index) => {
           // Wider distribution across the screen
           const initialX = (index * 37) % 90 + 5; 
@@ -83,9 +109,10 @@ export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
           const randomDuration = (12 + ((index * 5) % 15)) * 0.8; // Faster by 20%
           const randomDelay = (index * 1.5) % 8;
           
-          // Randomize motion paths
+          // Randomize 3D motion paths
           const xPath = index % 2 === 0 ? [0, 60, -60, 0] : [0, -70, 70, 0];
           const yPath = index % 3 === 0 ? [0, -80, 80, 0] : [0, 90, -90, 0];
+          const zPath = index % 4 === 0 ? [0, 200, -100, 0] : [0, -150, 150, 0];
 
           // Dynamic colors over time
           const getPalette = () => {
@@ -103,11 +130,15 @@ export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
               style={{
                 left: `${initialX}%`,
                 top: `${initialY}%`,
+                transformStyle: 'preserve-3d',
               }}
               animate={{
                 y: yPath,
                 x: xPath,
-                rotate: [0, 180, 360],
+                z: zPath,
+                rotateX: index % 2 === 0 ? [0, 360] : [360, 0],
+                rotateY: index % 3 === 0 ? [0, 360] : [360, 0],
+                rotateZ: [0, 180, 360],
                 opacity: [0.4, 0.8, 0.4], // Appear at 80% max
                 color: getPalette(),
               }}

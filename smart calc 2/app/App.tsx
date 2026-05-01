@@ -86,7 +86,7 @@ export default function App() {
   const [calcMode, setCalcMode] = useState<CalcMode>('COMP');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [calcScale, setCalcScale] = useState(0.85); // Default to 85% for better fit
+  const [calcScale, setCalcScale] = useState(1.0); // 1.0 represents the new 80% baseline
   const [sidebarWidth, setSidebarWidth] = useState(450); // New state for sidebar size
 
   const [isScanning, setIsScanning] = useState(false);
@@ -1088,13 +1088,21 @@ export default function App() {
 
         {/* ── CALCULATOR PANEL ── */}
         <div
-          id="calculator-panel"
-          style={{ 
-            width: window.innerWidth > 768 ? '400px' : '100%',
-            height: window.innerWidth > 768 ? '840px' : '100%',
-            transform: window.innerWidth > 768 ? `scale(${calcScale})` : 'none',
-            transformOrigin: 'center center'
+          id="calculator-panel-wrapper"
+          style={{
+            width: window.innerWidth > 768 ? `${440 * (calcScale * 0.8)}px` : '100%',
+            height: window.innerWidth > 768 ? `${840 * (calcScale * 0.8)}px` : '100%',
           }}
+          className="flex-shrink-0 relative transition-all duration-500"
+        >
+          <div
+            id="calculator-panel"
+            style={{ 
+              width: window.innerWidth > 768 ? '440px' : '100%',
+              height: window.innerWidth > 768 ? '840px' : '100%',
+              transform: window.innerWidth > 768 ? `scale(${calcScale * 0.8})` : 'none',
+              transformOrigin: 'top left'
+            }}
           className={cn(
             "flex-shrink-0 flex flex-col min-h-0 transition-all duration-500",
             isDarkMode 
@@ -1317,6 +1325,7 @@ export default function App() {
               ))}
             </div>
           </div>
+        </div>
         </div>
 
         {/* ── SIDEBAR PANEL ── */}
@@ -1953,7 +1962,7 @@ export default function App() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <label className="text-xs text-slate-400">Calculator Scale: <span className="text-blue-400 font-mono">{(calcScale * 100).toFixed(0)}%</span></label>
-                      <button onClick={() => setCalcScale(0.85)} className="text-[10px] text-slate-500 hover:text-white transition-colors">Reset</button>
+                      <button onClick={() => setCalcScale(1.0)} className="text-[10px] text-slate-500 hover:text-white transition-colors">Reset</button>
                     </div>
                     <input 
                       type="range" min="0.5" max="1.5" step="0.05" 
