@@ -86,7 +86,7 @@ export default function App() {
   const [calcMode, setCalcMode] = useState<CalcMode>('COMP');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [calcScale, setCalcScale] = useState(1.0); // New state for calculator size
+  const [calcScale, setCalcScale] = useState(0.85); // Default to 85% for better fit
   const [sidebarWidth, setSidebarWidth] = useState(450); // New state for sidebar size
 
   const [isScanning, setIsScanning] = useState(false);
@@ -1005,7 +1005,7 @@ export default function App() {
       "h-[100dvh] w-full relative flex flex-col font-sans selection:bg-blue-500/30 overflow-hidden transition-colors duration-500",
       isDarkMode ? "dark text-slate-200" : "text-slate-900"
     )}>
-      <MotionBackground />
+      <MotionBackground isDarkMode={isDarkMode} />
       {!user ? (
         <LoginPage />
       ) : (
@@ -1014,7 +1014,7 @@ export default function App() {
       {/* SYSTEM TOP BAR */}
       <div className={cn(
         "w-full h-12 flex-shrink-0 backdrop-blur-md border-b px-4 flex items-center justify-between z-[100] shadow-sm transition-all",
-        isDarkMode ? "bg-[#1A2235]/90 border-white/5 shadow-black/40" : "bg-white/80 border-slate-200 shadow-slate-200/50"
+        isDarkMode ? "bg-[#1A2235]/60 border-white/5 shadow-black/40" : "bg-white/60 border-slate-200 shadow-slate-200/50"
       )}>
         {/* Left: logo */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
@@ -1090,15 +1090,17 @@ export default function App() {
         <div
           id="calculator-panel"
           style={{ 
-            width: window.innerWidth > 768 ? `${400 * calcScale}px` : '100%',
-            height: window.innerWidth > 768 ? `${840 * calcScale}px` : '100%',
+            width: window.innerWidth > 768 ? '400px' : '100%',
+            height: window.innerWidth > 768 ? '840px' : '100%',
+            transform: window.innerWidth > 768 ? `scale(${calcScale})` : 'none',
+            transformOrigin: 'center center'
           }}
           className={cn(
             "flex-shrink-0 flex flex-col min-h-0 transition-all duration-500",
             isDarkMode 
-              ? "bg-[#11111d]/95 border-[1px] border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,1),inset_0_1px_1px_rgba(255,255,255,0.1)]" 
-              : "bg-white/95 border-[1px] border-slate-200 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.8)]",
-            "md:rounded-[40px] overflow-hidden relative group/calc backdrop-blur-3xl"
+              ? "bg-[#11111d]/40 border-[1px] border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,1),inset_0_1px_1px_rgba(255,255,255,0.1)]" 
+              : "bg-white/40 border-[1px] border-slate-200 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.8)]",
+            "md:rounded-[40px] overflow-hidden relative group/calc backdrop-blur-md"
           )}
         >
           {/* High Quality Reflections & Texture */}
@@ -1330,8 +1332,8 @@ export default function App() {
             // Desktop: sits beside calculator, full height
             "md:relative md:inset-auto md:z-auto md:flex-1 md:h-full md:overflow-hidden md:border-[1px]",
             isDarkMode 
-              ? "bg-[#0b0b14]/80 border-white/10 backdrop-blur-3xl" 
-              : "bg-white/80 border-slate-200/60 backdrop-blur-3xl shadow-2xl shadow-black/10",
+              ? "bg-[#0b0b14]/40 border-white/10 backdrop-blur-md" 
+              : "bg-white/40 border-slate-200/60 backdrop-blur-md shadow-2xl shadow-black/10",
             "md:rounded-[40px]" // Match calculator radius
           )}>
             
@@ -1951,7 +1953,7 @@ export default function App() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <label className="text-xs text-slate-400">Calculator Scale: <span className="text-blue-400 font-mono">{(calcScale * 100).toFixed(0)}%</span></label>
-                      <button onClick={() => setCalcScale(1.0)} className="text-[10px] text-slate-500 hover:text-white transition-colors">Reset</button>
+                      <button onClick={() => setCalcScale(0.85)} className="text-[10px] text-slate-500 hover:text-white transition-colors">Reset</button>
                     </div>
                     <input 
                       type="range" min="0.5" max="1.5" step="0.05" 
