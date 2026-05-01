@@ -14,7 +14,7 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Tesseract from 'tesseract.js';
-import { MathBackgroundCanvas } from './components/MathBackgroundCanvas';
+import { MotionBackground } from './components/MotionBackground';
 import { useAuth } from './lib/AuthContext';
 
 import { AuthModal } from './components/AuthModal';
@@ -1000,15 +1000,16 @@ export default function App() {
     }
   };
 
-  if (!user) {
-    return <LoginPage />;
-  }
-
   return (
     <div className={cn(
-      "h-[100dvh] flex flex-col font-sans selection:bg-blue-500/30 overflow-hidden transition-colors duration-500",
-      isDarkMode ? "text-slate-200 bg-transparent" : "text-slate-900 bg-transparent"
+      "h-[100dvh] w-full relative flex flex-col font-sans selection:bg-blue-500/30 overflow-hidden transition-colors duration-500",
+      isDarkMode ? "dark text-slate-200" : "text-slate-900"
     )}>
+      <MotionBackground />
+      {!user ? (
+        <LoginPage />
+      ) : (
+        <div className="relative z-10 flex flex-col h-full w-full">
       
       {/* SYSTEM TOP BAR */}
       <div className={cn(
@@ -1078,7 +1079,6 @@ export default function App() {
       </div>
 
       {/* ====== RICH MOTION BACKGROUND ====== */}
-      <MathBackgroundCanvas />
 
       {/* ── MAIN AREA ── */}
       <div id="main-area" className={cn(
@@ -2100,6 +2100,8 @@ export default function App() {
           100% { transform: translateY(-100vh); opacity: 0; }
         }
       `}</style>
+        </div>
+      )}
     </div>
   );
 }

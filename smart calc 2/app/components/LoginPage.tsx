@@ -1,48 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
-import { MathBackgroundCanvas } from './MathBackgroundCanvas';
 
 import { LogIn, Sparkles, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'motion/react';
-import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 
-function FloatingSymbol({ sym, index, mouseX }: { sym: string, index: number, mouseX: any }) {
-  const baseX = (index * 13) % 100;
-  const x = useTransform(mouseX, [-0.5, 0.5], [`${baseX}%`, `${baseX + 10}%`]);
-
-  return (
-    <motion.div
-      initial={{ 
-        y: '110%',
-        opacity: 0,
-        rotate: 0,
-        scale: 0.5
-      }}
-      animate={{
-        y: '-10%',
-        opacity: [0, 0.12, 0.12, 0],
-        rotate: [0, (index % 2 === 0 ? 180 : -180)],
-        scale: [0.5, 1, 0.5]
-      }}
-      transition={{
-        duration: 25 + (index % 10) * 8,
-        repeat: Infinity,
-        ease: "linear",
-        delay: (index * 1.5) % 20
-      }}
-      style={{ 
-        x,
-        fontSize: `${10 + (index % 4) * 4}px`,
-        filter: 'blur(0.8px)'
-      }}
-      className="absolute font-mono font-bold text-blue-300/20 pointer-events-none select-none whitespace-nowrap"
-    >
-      {sym}
-    </motion.div>
-  );
-}
 
 export function LoginPage() {
   const { signInWithGoogle, loginAsGuest, signInWithEmail, signUpWithEmail } = useAuth();
@@ -54,23 +17,6 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  // Mouse tracking for interactive background
-  const mouseX = useMotionValue(0.5);
-  const mouseY = useMotionValue(0.5);
-
-  // Smooth springs for mouse movement
-  const springConfig = { damping: 50, stiffness: 200 };
-  const smoothX = useSpring(mouseX, springConfig);
-  const smoothY = useSpring(mouseY, springConfig);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseX.set((e.clientX / window.innerWidth) - 0.5);
-      mouseY.set((e.clientY / window.innerHeight) - 0.5);
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -104,104 +50,7 @@ export function LoginPage() {
 
   return (
     <div className="fixed inset-0 bg-transparent flex items-center justify-center overflow-hidden font-sans selection:bg-blue-500/30 selection:text-white">
-      <MathBackgroundCanvas />
 
-      {/* Dynamic Background Shapes (High Quality) */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        {/* Layer 1: Ambient Mesh Blobs */}
-        <motion.div
-          animate={{
-            x: [0, 150, 0],
-            y: [0, 80, 0],
-            scale: [1, 1.3, 1],
-            rotate: [0, 20, 0],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-25%] left-[-15%] w-[80%] h-[80%] bg-blue-600/10 blur-[140px] rounded-full"
-        />
-        <motion.div
-          animate={{
-            x: [0, -120, 0],
-            y: [0, 150, 0],
-            scale: [1.2, 0.8, 1.2],
-            rotate: [0, -15, 0],
-          }}
-          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-[-20%] right-[-15%] w-[75%] h-[75%] bg-purple-600/10 blur-[140px] rounded-full"
-        />
-        <motion.div
-          animate={{
-            opacity: [0.05, 0.15, 0.05],
-            scale: [0.8, 1.1, 0.8],
-          }}
-          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[10%] right-[5%] w-[50%] h-[50%] bg-cyan-400/10 blur-[160px] rounded-full"
-        />
-
-        {/* Layer 2: Mouse Reactive Glow */}
-        <motion.div
-          style={{
-            x: smoothX,
-            y: smoothY,
-            translateX: '-50%',
-            translateY: '-50%',
-          }}
-          className="absolute w-[800px] h-[800px] bg-blue-500/[0.08] blur-[180px] rounded-full"
-        />
-        
-        {/* Layer 3: Cyber Grid */}
-        <div 
-          className="absolute inset-0 opacity-[0.04]" 
-          style={{ 
-            backgroundImage: `linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)`,
-            backgroundSize: '60px 60px',
-            maskImage: 'radial-gradient(circle at center, black 10%, transparent 90%)',
-            WebkitMaskImage: 'radial-gradient(circle at center, black 10%, transparent 90%)'
-          }}
-        />
-
-        {/* Layer 4: Mathematical Symbols */}
-        {[
-          '+', '−', '×', '÷', '√', 'π', '∫', 'Σ', '∞', '∆', 'θ', 'λ',
-          'lim', 'sin', 'cos', 'tan', 'log', 'ln', 'f(x)', 'dy/dx',
-          '∂', '∇', '≡', '≈', '≠', '≤', '≥', '±', '∓', '⊕', '⊗', '∫', '∬'
-        ].map((sym, i) => (
-          <FloatingSymbol 
-            key={i} 
-            sym={sym} 
-            index={i} 
-            mouseX={smoothX} 
-          />
-        ))}
-
-        {/* Layer 5: High Quality Particles */}
-        {[...Array(40)].map((_, i) => (
-          <motion.div
-            key={`p-${i}`}
-            initial={{ 
-              x: Math.random() * 100 + '%', 
-              y: '110%',
-              opacity: 0
-            }}
-            animate={{
-              y: '-10%',
-              opacity: [0, 0.4, 0],
-              x: [null, `+=${(Math.random() - 0.5) * 200}`]
-            }}
-            transition={{
-              duration: Math.random() * 20 + 20,
-              repeat: Infinity,
-              ease: "linear",
-              delay: Math.random() * -20
-            }}
-            className="absolute w-0.5 h-0.5 bg-blue-400/40 rounded-full"
-            style={{ 
-              boxShadow: '0 0 8px 2px rgba(59, 130, 246, 0.3)',
-              filter: 'blur(0.2px)'
-            }}
-          />
-        ))}
-      </div>
 
       <div className="relative z-10 w-full max-w-[440px] px-6 flex flex-col items-center">
         {/* Logo Section */}
