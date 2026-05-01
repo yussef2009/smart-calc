@@ -115,34 +115,42 @@ export function LoginPage() {
         />
 
         {/* Floating Mathematical Symbols */}
-        {mathSymbols.map((symbol, i) => (
+        {[
+          '+', '−', '×', '÷', '√', 'π', '∫', 'Σ', '∞', '∆', 'θ', 'λ',
+          'lim', 'sin', 'cos', 'tan', 'log', 'ln', 'f(x)', 'dy/dx',
+          '∂', '∇', '≡', '≈', '≠', '≤', '≥', '±', '∓'
+        ].map((symbol, i) => (
           <motion.div
             key={i}
             initial={{ 
               x: Math.random() * 100 + '%', 
-              y: Math.random() * 100 + '%',
+              y: '110%',
               opacity: 0,
-              rotate: Math.random() * 360
+              rotate: Math.random() * 360,
+              scale: 0.5
             }}
             animate={{
-              y: [null, '-=100'],
-              opacity: [0, 0.15, 0],
-              rotate: [null, Math.random() * 360 + 180]
+              y: '-10%',
+              x: [null, `${(Math.random() * 20 - 10) + (i * 13) % 100}%`],
+              opacity: [0, 0.25, 0.25, 0],
+              rotate: [null, Math.random() * 720 - 360],
+              scale: [0.5, 1.2, 0.5]
             }}
             transition={{
-              duration: Math.random() * 20 + 20,
+              duration: Math.random() * 15 + 15,
               repeat: Infinity,
-              ease: "linear",
-              delay: Math.random() * -20
+              ease: "easeInOut",
+              delay: Math.random() * -30
             }}
-            className="absolute text-2xl font-serif text-blue-300 pointer-events-none select-none"
+            className="absolute text-2xl font-mono font-bold text-blue-300/40 pointer-events-none select-none"
+            style={{ fontSize: `${14 + (i % 8) * 4}px` }}
           >
             {symbol}
           </motion.div>
         ))}
 
         {/* Animated Particles (Enhanced) */}
-        {[...Array(30)].map((_, i) => (
+        {[...Array(40)].map((_, i) => (
           <motion.div
             key={`p-${i}`}
             initial={{ 
@@ -152,16 +160,17 @@ export function LoginPage() {
             }}
             animate={{
               y: '-10%',
-              opacity: [0, 0.5, 0],
-              x: [null, `+=${(Math.random() - 0.5) * 100}`]
+              opacity: [0, 0.6, 0],
+              x: [null, `+=${(Math.random() - 0.5) * 150}`]
             }}
             transition={{
-              duration: Math.random() * 15 + 10,
+              duration: Math.random() * 10 + 8,
               repeat: Infinity,
               ease: "linear",
-              delay: Math.random() * -15
+              delay: Math.random() * -10
             }}
-            className="absolute w-0.5 h-0.5 bg-blue-400 rounded-full"
+            className="absolute w-0.5 h-0.5 bg-blue-400/50 rounded-full"
+            style={{ boxShadow: '0 0 10px rgba(59, 130, 246, 0.5)' }}
           />
         ))}
       </div>

@@ -58,6 +58,42 @@ interface CalculatorButton {
   type?: 'num' | 'ctrl' | 'op';
 }
 
+function FloatingSymbol({ sym, index, mouseX }: { sym: string, index: number, mouseX: any }) {
+  const baseX = (index * 13) % 100;
+  const x = useTransform(mouseX, [-0.5, 0.5], [`${baseX}%`, `${baseX + 5}%`]);
+
+  return (
+    <motion.span
+      style={{ 
+        fontSize: `${12 + (index % 6) * 6}px`,
+        filter: 'blur(0.5px)',
+        x,
+      }}
+      initial={{ 
+        y: '110vh', 
+        opacity: 0,
+        rotate: 0,
+        scale: 0.8
+      }}
+      animate={{ 
+        y: '-20vh',
+        opacity: [0, 0.4, 0.4, 0],
+        rotate: [0, (index % 2 === 0 ? 360 : -360)],
+        scale: [0.8, 1.2, 0.9]
+      }}
+      transition={{
+        duration: 15 + (index % 10) * 3,
+        repeat: Infinity,
+        ease: "linear",
+        delay: (index * 0.8) % 12
+      }}
+      className="absolute text-blue-400/25 font-mono font-bold select-none whitespace-nowrap"
+    >
+      {sym}
+    </motion.span>
+  );
+}
+
 export default function App() {
   const [expression, setExpression] = useState('');
   const [result, setResult] = useState('');
@@ -921,28 +957,28 @@ export default function App() {
 
   const renderSciButton = (btn: any, i: number) => {
     const baseClass = isDarkMode 
-      ? "bg-[#33334d] hover:bg-[#4d4d73] text-slate-100 border-[#1e1e2f]" 
-      : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300";
+      ? "bg-gradient-to-b from-[#3a3a55] to-[#2a2a3e] hover:from-[#454566] hover:to-[#35354d] text-slate-100 border-[#1a1a2b] shadow-[0_2px_0_#1a1a2b,0_4px_10px_rgba(0,0,0,0.3)]" 
+      : "bg-gradient-to-b from-slate-100 to-slate-200 hover:from-white hover:to-slate-100 text-slate-800 border-slate-300 shadow-[0_2px_0_#cbd5e1,0_4px_8px_rgba(0,0,0,0.05)]";
       
     const specialClass = btn.label === 'CALC' || btn.label === 'EVAL'
-      ? (isDarkMode ? "bg-slate-700 hover:bg-slate-600 border-slate-900" : "bg-slate-800 hover:bg-slate-700 text-white border-slate-950")
+      ? (isDarkMode ? "bg-gradient-to-b from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 border-slate-900" : "bg-gradient-to-b from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white border-slate-950")
       : "";
 
     return (
-      <div key={i} className="flex flex-col items-center col-span-1">
-        <div className="flex w-full justify-between px-[2px] mb-[2px] h-[12px]">
-          <span className="text-[8px] font-black text-amber-500 leading-none">{btn.shiftLabel}</span>
-          <span className="text-[8px] font-black text-red-500 leading-none">{btn.alphaLabel}</span>
+      <div key={i} className="flex flex-col items-center col-span-1 group/btn">
+        <div className="flex w-full justify-between px-[3px] mb-[3px] h-[12px] transition-all opacity-70 group-hover/btn:opacity-100">
+          <span className="text-[9px] font-black text-amber-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.shiftLabel}</span>
+          <span className="text-[9px] font-black text-red-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.alphaLabel}</span>
         </div>
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-7 sm:h-7.5 rounded-lg text-[10px] font-bold shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
+            "w-full h-8 sm:h-8.5 rounded-xl text-[10px] font-black border transition-all active:translate-y-[2px] active:shadow-none",
             baseClass,
             specialClass
           )}
         >
-          {btn.label}
+          <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">{btn.label}</span>
         </button>
       </div>
     );
@@ -950,39 +986,39 @@ export default function App() {
 
   const renderNumButton = (btn: any, i: number) => {
     let variantClass = isDarkMode
-      ? "bg-[#282a36] hover:bg-[#383a48] text-white border-[#161820]"
-      : "bg-white hover:bg-slate-50 text-slate-800 border-slate-200";
+      ? "bg-gradient-to-b from-[#32364a] to-[#222436] hover:from-[#3e425c] hover:to-[#2d304a] text-white border-[#161820] shadow-[0_3px_0_#161820,0_5px_15px_rgba(0,0,0,0.4)]"
+      : "bg-gradient-to-b from-white to-slate-100 hover:from-white hover:to-white text-slate-900 border-slate-200 shadow-[0_3px_0_#e2e8f0,0_5px_10px_rgba(0,0,0,0.05)]";
     
     if (btn.type === 'op') {
       variantClass = isDarkMode
-        ? "bg-[#44475a] hover:bg-[#56596e] text-white border-[#292b36]"
-        : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300";
+        ? "bg-gradient-to-b from-[#4a4d6b] to-[#3a3d55] hover:from-[#565a7d] hover:to-[#454866] text-white border-[#292b36] shadow-[0_3px_0_#1a1c26,0_5px_15px_rgba(0,0,0,0.4)]"
+        : "bg-gradient-to-b from-slate-100 to-slate-200 hover:from-slate-50 hover:to-slate-100 text-slate-700 border-slate-300 shadow-[0_3px_0_#cbd5e1,0_5px_10px_rgba(0,0,0,0.05)]";
     } else if (btn.type === 'ctrl') {
       if (btn.label === '=') {
         variantClass = isDarkMode
-          ? "bg-cyan-500 hover:bg-cyan-400 text-black border-cyan-700"
-          : "bg-cyan-400 hover:bg-cyan-300 text-cyan-950 border-cyan-600";
+          ? "bg-gradient-to-b from-cyan-400 to-cyan-600 hover:from-cyan-300 hover:to-cyan-500 text-black border-cyan-800 shadow-[0_3px_0_#0e7490,0_10px_25px_rgba(6,182,212,0.3)]"
+          : "bg-gradient-to-b from-cyan-300 to-cyan-500 hover:from-cyan-200 hover:to-cyan-400 text-cyan-950 border-cyan-600 shadow-[0_3px_0_#0891b2,0_10px_20px_rgba(6,182,212,0.2)]";
       } else {
         variantClass = isDarkMode
-          ? "bg-red-500 hover:bg-red-400 text-white border-red-700"
-          : "bg-red-100 hover:bg-red-200 text-red-600 border-red-200";
+          ? "bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white border-red-900 shadow-[0_3px_0_#7f1d1d,0_10px_20px_rgba(239,68,68,0.2)]"
+          : "bg-gradient-to-b from-red-50 to-red-100 hover:from-white hover:to-red-50 text-red-600 border-red-200 shadow-[0_3px_0_#fecaca,0_5px_10px_rgba(239,68,68,0.05)]";
       }
     }
 
     return (
-      <div key={i} className="flex flex-col items-center col-span-1">
-        <div className="flex w-full justify-between px-1 mb-[2px] h-[12px]">
-          <span className="text-[8px] font-black text-amber-500 leading-none">{btn.shiftLabel}</span>
-          <span className="text-[8px] font-black text-red-500 leading-none">{btn.alphaLabel}</span>
+      <div key={i} className="flex flex-col items-center col-span-1 group/btn">
+        <div className="flex w-full justify-between px-2 mb-[4px] h-[12px] transition-all opacity-60 group-hover/btn:opacity-100">
+          <span className="text-[9px] font-black text-amber-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.shiftLabel}</span>
+          <span className="text-[9px] font-black text-red-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.alphaLabel}</span>
         </div>
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-9 sm:h-10 rounded-xl text-lg font-black shadow-sm border-b-2 active:border-b-0 active:translate-y-[2px] transition-all",
+            "w-full h-10 sm:h-12 rounded-2xl text-xl font-black border transition-all active:translate-y-[3px] active:shadow-none",
             variantClass
           )}
         >
-          {btn.label}
+          <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.label}</span>
         </button>
       </div>
     );
@@ -1117,27 +1153,18 @@ export default function App() {
         </motion.div>
 
         {/* Layer 3 – Rising Particles & Symbols */}
-        <div className="absolute inset-0">
-          {['∑','∫','π','√','∞','Δ','∂','λ','α','θ','≡','∇'].map((sym, i) => (
-            <motion.span
-              key={i}
-              initial={{ y: '110vh', x: `${(i * 9) % 100}%`, opacity: 0 }}
-              animate={{ 
-                y: '-10vh',
-                opacity: [0, 0.3, 0],
-                rotate: [0, 360]
-              }}
-              transition={{
-                duration: 20 + i * 2,
-                repeat: Infinity,
-                ease: "linear",
-                delay: i * 1.5
-              }}
-              className="absolute text-blue-400/30 font-serif select-none pointer-events-none"
-              style={{ fontSize: `${16 + (i % 5) * 8}px` }}
-            >
-              {sym}
-            </motion.span>
+        <div className="absolute inset-0 pointer-events-none">
+          {[
+            '∑', '∫', 'π', '√', '∞', 'Δ', '∂', 'λ', 'α', 'θ', '≡', '∇',
+            'lim', 'sin', 'cos', 'tan', 'log', 'ln', 'f(x)', 'dy/dx', 
+            'exp', 'Σ', 'Π', 'δ', 'ψ', 'ζ', 'η', 'φ', 'ω'
+          ].map((sym, i) => (
+            <FloatingSymbol 
+              key={i} 
+              sym={sym} 
+              index={i} 
+              mouseX={smoothBgX} 
+            />
           ))}
         </div>
 
@@ -1173,13 +1200,15 @@ export default function App() {
         <div
           id="calculator-panel"
           className={cn(
-            "flex-shrink-0 w-full md:w-[420px] lg:w-[440px] h-full md:h-[90%] lg:h-[850px] flex flex-col min-h-0 transition-all duration-500",
+            "flex-shrink-0 w-full md:w-[440px] lg:w-[460px] h-full md:h-[92%] lg:h-[880px] flex flex-col min-h-0 transition-all duration-500",
             isDarkMode 
-              ? "bg-[#1e1e2f]/90 md:bg-[#1e1e2f] border border-slate-800/60 shadow-2xl shadow-black/40" 
-              : "bg-white/90 md:bg-white border border-slate-200 shadow-2xl shadow-slate-200",
-            "md:rounded-[40px] overflow-hidden backdrop-blur-xl md:backdrop-blur-none"
+              ? "bg-[#1e1e2f] border-[6px] border-[#252538] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8),inset_0_2px_10px_rgba(255,255,255,0.05)]" 
+              : "bg-white border-[6px] border-slate-200 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2),inset_0_2px_10px_rgba(255,255,255,0.5)]",
+            "md:rounded-[48px] overflow-hidden relative group/calc"
           )}
         >
+          {/* Subtle Outer Bevel */}
+          <div className="absolute inset-0 pointer-events-none border border-white/5 rounded-[42px] z-50 m-[-1px]" />
           
           {/* Header */}
           <div className={cn(
@@ -1245,30 +1274,36 @@ export default function App() {
 
           {/* Display */}
           <div className={cn(
-            "p-4 pt-6 h-[100px] sm:h-[115px] flex-shrink-0 flex flex-col justify-end items-end relative mx-3 mt-3 mb-4 rounded-2xl border transition-all duration-500",
+            "p-5 pt-7 h-[110px] sm:h-[130px] flex-shrink-0 flex flex-col justify-end items-end relative mx-3 mt-3 mb-5 rounded-3xl border transition-all duration-500 overflow-hidden group/display",
             isDarkMode 
-              ? "bg-[#e6f0ea] shadow-[inset_0_2px_10px_rgba(0,0,0,0.2)] border-slate-700/50" 
-              : "bg-[#fdfdfd] shadow-[0_4px_20px_-5px_rgba(0,0,0,0.1),inset_0_2px_5px_rgba(0,0,0,0.05)] border-slate-200"
+              ? "bg-gradient-to-br from-[#e6f0ea] to-[#d8e8de] shadow-[inset_0_4px_12px_rgba(0,0,0,0.3),0_1px_1px_rgba(255,255,255,0.05)] border-slate-700/80" 
+              : "bg-[#fdfdfd] shadow-[0_8px_30px_-10px_rgba(0,0,0,0.1),inset_0_2px_5px_rgba(0,0,0,0.05)] border-slate-200"
           )}>
+            {/* LCD Scanline Effect */}
+            <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] z-10" />
+            
             {/* Top LCD Status Bar */}
             <div className={cn(
-              "absolute top-2.5 left-4 right-4 flex justify-between items-start font-mono text-[10px] font-black tracking-[0.2em] select-none transition-all",
-              isDarkMode ? "text-[#558870] opacity-80" : "text-slate-400"
+              "absolute top-3 left-5 right-5 flex justify-between items-start font-mono text-[10px] font-black tracking-[0.2em] select-none transition-all z-20",
+              isDarkMode ? "text-[#558870] opacity-90" : "text-slate-400"
             )}>
-              <div className="flex gap-3 items-center">
-                <span className={cn("px-1 rounded", isDarkMode ? "bg-[#558870]/10" : "bg-slate-100")}>{calcMode}</span>
-                {isShift && <span className={cn("px-1 rounded animate-pulse", isDarkMode ? "bg-amber-900/10 text-amber-800" : "bg-amber-100 text-amber-600")}>S</span>}
-                {isAlpha && <span className={cn("px-1 rounded animate-pulse", isDarkMode ? "bg-red-900/10 text-red-800" : "bg-red-100 text-red-600")}>A</span>}
+              <div className="flex gap-4 items-center">
+                <span className={cn("px-1.5 py-0.5 rounded-md border", isDarkMode ? "bg-[#558870]/10 border-[#558870]/20" : "bg-slate-100 border-slate-200")}>{calcMode}</span>
+                {isShift && <span className={cn("px-1.5 py-0.5 rounded-md border animate-pulse", isDarkMode ? "bg-amber-900/10 text-amber-800 border-amber-800/20" : "bg-amber-100 text-amber-600 border-amber-200")}>S</span>}
+                {isAlpha && <span className={cn("px-1.5 py-0.5 rounded-md border animate-pulse", isDarkMode ? "bg-red-900/10 text-red-800 border-red-800/20" : "bg-red-100 text-red-600 border-red-200")}>A</span>}
               </div>
-              <div className="flex gap-2">
-                <span>MATH</span>
+              <div className="flex gap-3 items-center">
+                <div className="flex gap-1 items-center">
+                   <div className={cn("w-1.5 h-1.5 rounded-full", isDarkMode ? "bg-[#558870]" : "bg-slate-300")} />
+                   <span>MATH</span>
+                </div>
                 <span>D</span>
               </div>
             </div>
 
             {/* Scanning Overlay */}
             {isScanning && (
-              <div className={cn("absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl backdrop-blur-[2px]", isDarkMode ? "bg-[#e6f0ea]/90" : "bg-white/90")}>
+              <div className={cn("absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl backdrop-blur-[2px]", isDarkMode ? "bg-[#e6f0ea]/90" : "bg-white/90")}>
                  <Camera className={cn("w-8 h-8 animate-pulse mb-2", isDarkMode ? "text-[#558870]" : "text-blue-500")} />
                  <p className={cn("font-mono text-xs font-black uppercase tracking-widest", isDarkMode ? "text-[#558870]" : "text-blue-600")}>Scanning {scanProgress}%</p>
               </div>
@@ -1276,20 +1311,20 @@ export default function App() {
 
             <div 
               ref={displayRef}
-              className="w-full overflow-x-auto overflow-y-hidden text-right whitespace-nowrap scrollbar-hide mb-1"
+              className="w-full overflow-x-auto overflow-y-hidden text-right whitespace-nowrap scrollbar-hide mb-2 z-20"
             >
               <div className={cn(
-                "text-3xl font-mono font-black tracking-tight min-h-[40px] transition-all",
+                "text-4xl font-mono font-black tracking-tight min-h-[44px] transition-all drop-shadow-[0_1px_0_rgba(255,255,255,0.5)]",
                 isDarkMode ? "text-[#0d1f15]" : "text-slate-900"
               )}>
-                {expression || <span className="opacity-20 italic">0</span>}
+                {expression || <span className="opacity-10">0</span>}
               </div>
             </div>
             <div className={cn(
-              "text-lg font-mono font-bold h-7 transition-all",
+              "text-xl font-mono font-bold h-8 transition-all z-20",
               isDarkMode ? "text-[#558870]" : "text-blue-600"
             )}>
-              {result && (result === 'Error' ? <span className="text-red-600">Error</span> : `= ${result}`)}
+              {result && (result === 'Error' ? <span className="text-red-700">Error</span> : `= ${result}`)}
             </div>
           </div>
 
