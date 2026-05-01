@@ -102,29 +102,39 @@ export function LoginPage() {
 
   return (
     <div className="fixed inset-0 bg-[#020205] flex items-center justify-center overflow-hidden font-sans selection:bg-blue-500/30 selection:text-white">
-      {/* Dynamic Background Shapes */}
+      {/* Dynamic Background Shapes (High Quality) */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        {/* Animated Gradient Mesh Blobs */}
+        {/* Layer 1: Ambient Mesh Blobs */}
         <motion.div
           animate={{
-            x: [0, 100, 0],
-            y: [0, 50, 0],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-blue-600/15 blur-[120px] rounded-full"
-        />
-        <motion.div
-          animate={{
-            x: [0, -80, 0],
-            y: [0, 120, 0],
-            scale: [1.1, 0.9, 1.1],
+            x: [0, 150, 0],
+            y: [0, 80, 0],
+            scale: [1, 1.3, 1],
+            rotate: [0, 20, 0],
           }}
           transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-purple-600/15 blur-[120px] rounded-full"
+          className="absolute top-[-25%] left-[-15%] w-[80%] h-[80%] bg-blue-600/10 blur-[140px] rounded-full"
+        />
+        <motion.div
+          animate={{
+            x: [0, -120, 0],
+            y: [0, 150, 0],
+            scale: [1.2, 0.8, 1.2],
+            rotate: [0, -15, 0],
+          }}
+          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[-20%] right-[-15%] w-[75%] h-[75%] bg-purple-600/10 blur-[140px] rounded-full"
+        />
+        <motion.div
+          animate={{
+            opacity: [0.05, 0.15, 0.05],
+            scale: [0.8, 1.1, 0.8],
+          }}
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[10%] right-[5%] w-[50%] h-[50%] bg-cyan-400/10 blur-[160px] rounded-full"
         />
 
-        {/* Mouse Following Glow */}
+        {/* Layer 2: Mouse Reactive Glow */}
         <motion.div
           style={{
             x: smoothX,
@@ -132,25 +142,25 @@ export function LoginPage() {
             translateX: '-50%',
             translateY: '-50%',
           }}
-          className="absolute w-[600px] h-[600px] bg-blue-500/10 blur-[150px] rounded-full"
+          className="absolute w-[800px] h-[800px] bg-blue-500/[0.08] blur-[180px] rounded-full"
         />
         
-        {/* Subtle Grid with Radial Mask */}
+        {/* Layer 3: Cyber Grid */}
         <div 
-          className="absolute inset-0 opacity-[0.05]" 
+          className="absolute inset-0 opacity-[0.04]" 
           style={{ 
             backgroundImage: `linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)`,
-            backgroundSize: '40px 40px',
-            maskImage: 'radial-gradient(circle at center, black, transparent 80%)',
-            WebkitMaskImage: 'radial-gradient(circle at center, black, transparent 80%)'
+            backgroundSize: '60px 60px',
+            maskImage: 'radial-gradient(circle at center, black 10%, transparent 90%)',
+            WebkitMaskImage: 'radial-gradient(circle at center, black 10%, transparent 90%)'
           }}
         />
 
-        {/* Floating Mathematical Symbols */}
+        {/* Layer 4: Mathematical Symbols */}
         {[
           '+', '−', '×', '÷', '√', 'π', '∫', 'Σ', '∞', '∆', 'θ', 'λ',
           'lim', 'sin', 'cos', 'tan', 'log', 'ln', 'f(x)', 'dy/dx',
-          '∂', '∇', '≡', '≈', '≠', '≤', '≥', '±', '∓'
+          '∂', '∇', '≡', '≈', '≠', '≤', '≥', '±', '∓', '⊕', '⊗', '∫', '∬'
         ].map((sym, i) => (
           <FloatingSymbol 
             key={i} 
@@ -160,27 +170,31 @@ export function LoginPage() {
           />
         ))}
 
-        {/* Animated Particles (Enhanced) */}
-        {[...Array(30)].map((_, i) => (
+        {/* Layer 5: High Quality Particles */}
+        {[...Array(40)].map((_, i) => (
           <motion.div
             key={`p-${i}`}
             initial={{ 
               x: Math.random() * 100 + '%', 
               y: '110%',
-              opacity: Math.random() * 0.3
+              opacity: 0
             }}
             animate={{
               y: '-10%',
-              opacity: [0, 0.3, 0],
-              x: [null, `+=${(Math.random() - 0.5) * 100}`]
+              opacity: [0, 0.4, 0],
+              x: [null, `+=${(Math.random() - 0.5) * 200}`]
             }}
             transition={{
-              duration: Math.random() * 15 + 15,
+              duration: Math.random() * 20 + 20,
               repeat: Infinity,
               ease: "linear",
-              delay: Math.random() * -15
+              delay: Math.random() * -20
             }}
-            className="absolute w-0.5 h-0.5 bg-blue-400/30 rounded-full"
+            className="absolute w-0.5 h-0.5 bg-blue-400/40 rounded-full"
+            style={{ 
+              boxShadow: '0 0 8px 2px rgba(59, 130, 246, 0.3)',
+              filter: 'blur(0.2px)'
+            }}
           />
         ))}
       </div>

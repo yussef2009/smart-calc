@@ -1112,7 +1112,30 @@ export default function App() {
 
       {/* ====== RICH MOTION BACKGROUND ====== */}
       <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden bg-[#070b14]">
-        {/* Layer 1 – Dynamic Mesh Blobs */}
+        {/* Layer 1 – Dynamic Mesh Blobs (High Quality) */}
+        <motion.div 
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.15, 0.25, 0.15],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 blur-[150px] rounded-full pointer-events-none"
+        />
+        <motion.div 
+          animate={{
+            scale: [1.2, 1, 1.2],
+            opacity: [0.1, 0.2, 0.1],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-purple-600/20 blur-[150px] rounded-full pointer-events-none"
+        />
+        <motion.div 
+          style={{
+            x: useTransform(smoothBgX, [-0.5, 0.5], [-200, 200]),
+            y: useTransform(smoothBgY, [-0.5, 0.5], [-200, 200]),
+          }}
+          className="absolute top-1/4 left-1/4 w-[40%] h-[40%] bg-indigo-500/10 blur-[180px] rounded-full pointer-events-none"
+        />
         <motion.div
           animate={{
             scale: [1, 1.2, 1],
@@ -1140,14 +1163,14 @@ export default function App() {
           className="absolute top-[20%] right-[10%] w-[40%] h-[40%] bg-cyan-500/5 blur-[100px] rounded-full"
         />
 
-        {/* Layer 2 – Interactive Perspective Grid */}
+        {/* Layer 2 – Perspective Grid Floor (Enhanced) */}
         <motion.div 
           style={{ 
-            rotateX: gridRotateX,
-            rotateY: gridRotateY,
-            perspective: 1000
+            rotateX: 65, 
+            translateZ: 0,
+            x: useTransform(smoothBgX, [-0.5, 0.5], [-50, 50])
           }}
-          className="absolute inset-x-[-50%] bottom-[-50%] h-[150%] origin-center"
+          className="absolute inset-x-[-100%] bottom-[-50%] h-[180%] origin-center pointer-events-none"
         >
           <div className="w-full h-full grid-perspective-enhanced" />
         </motion.div>
@@ -1211,13 +1234,15 @@ export default function App() {
             "md:rounded-[48px] overflow-hidden relative group/calc"
           )}
         >
-          {/* Subtle Outer Bevel */}
+          {/* High Quality Reflections & Texture */}
+          <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/brushed-alum.png')] z-10" />
+          <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none z-10" />
           <div className="absolute inset-0 pointer-events-none border border-white/5 rounded-[42px] z-50 m-[-1px]" />
           
           {/* Header */}
           <div className={cn(
-            "px-4 py-3 border-b flex items-center justify-between transition-all",
-            isDarkMode ? "bg-[#1A2235] border-slate-800/60" : "bg-slate-50 border-slate-200"
+            "px-4 py-4 border-b flex items-center justify-between transition-all relative z-20 backdrop-blur-md",
+            isDarkMode ? "bg-[#1A2235]/60 border-slate-800/60" : "bg-slate-50/60 border-slate-200"
           )}>
             <div className="flex items-center gap-3">
               <div className={cn("flex items-center gap-2", isDarkMode ? "text-slate-300" : "text-slate-600")}>
@@ -2136,37 +2161,44 @@ export default function App() {
           scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
         }
 
-        /* ---- Aurora bands ---- */
+        /* ---- Aurora bands (Enhanced) ---- */
         .aurora-band {
           position: absolute;
-          width: 200%;
-          height: 220px;
+          width: 250%;
+          height: 400px;
           border-radius: 50%;
-          filter: blur(80px);
-          opacity: ${isDarkMode ? '0.18' : '0.08'};
-          animation: aurora-sweep 18s ease-in-out infinite alternate;
+          filter: blur(100px);
+          opacity: ${isDarkMode ? '0.22' : '0.12'};
+          pointer-events: none;
+          mix-blend-mode: screen;
         }
         .aurora-band-1 {
-          background: linear-gradient(90deg, #1a56ff, #7c3aed, #06b6d4);
-          top: -60px; left: -50%;
-          animation-duration: 16s;
+          background: radial-gradient(circle, #2563eb 0%, transparent 70%);
+          top: -150px; left: -50%;
+          animation: aurora-sweep-1 25s ease-in-out infinite alternate;
         }
         .aurora-band-2 {
-          background: linear-gradient(90deg, #0ea5e9, #8b5cf6, #10b981);
-          top: 30%; left: -30%;
-          animation-duration: 22s;
-          animation-delay: -6s;
+          background: radial-gradient(circle, #7c3aed 0%, transparent 70%);
+          top: 40%; right: -30%;
+          animation: aurora-sweep-2 30s ease-in-out infinite alternate;
         }
         .aurora-band-3 {
-          background: linear-gradient(90deg, #7c3aed, #ec4899, #2563eb);
-          bottom: -60px; left: -40%;
-          animation-duration: 19s;
-          animation-delay: -11s;
+          background: radial-gradient(circle, #0ea5e9 0%, transparent 70%);
+          bottom: -150px; left: 10%;
+          animation: aurora-sweep-3 28s ease-in-out infinite alternate;
         }
-        @keyframes aurora-sweep {
-          0%   { transform: translateX(0%) scaleY(1); }
-          50%  { transform: translateX(15%) scaleY(1.3); }
-          100% { transform: translateX(-10%) scaleY(0.8); }
+
+        @keyframes aurora-sweep-1 {
+          0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+          100% { transform: translate(15%, 10%) rotate(10deg) scale(1.2); }
+        }
+        @keyframes aurora-sweep-2 {
+          0%   { transform: translate(0, 0) rotate(0deg) scale(1.1); }
+          100% { transform: translate(-10%, -15%) rotate(-8deg) scale(0.9); }
+        }
+        @keyframes aurora-sweep-3 {
+          0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+          100% { transform: translate(-5%, 20%) rotate(5deg) scale(1.3); }
         }
 
         /* ---- Perspective scrolling grid ---- */
@@ -2174,12 +2206,12 @@ export default function App() {
           width: 100%;
           height: 100%;
           background-image:
-            linear-gradient(to right, rgba(37, 99, 235, 0.15) 1.5px, transparent 1.5px),
-            linear-gradient(to bottom, rgba(37, 99, 235, 0.15) 1.5px, transparent 1.5px);
-          background-size: 60px 60px;
-          mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%);
-          -webkit-mask-image: radial-gradient(circle at 50% 0%, black 20%, transparent 70%);
-          animation: grid-scroll-enhanced 10s linear infinite;
+            linear-gradient(to right, rgba(37, 99, 235, 0.2) 2px, transparent 2px),
+            linear-gradient(to bottom, rgba(37, 99, 235, 0.2) 2px, transparent 2px);
+          background-size: 80px 80px;
+          mask-image: radial-gradient(circle at 50% 50%, black 10%, transparent 85%);
+          -webkit-mask-image: radial-gradient(circle at 50% 50%, black 10%, transparent 85%);
+          animation: grid-scroll-enhanced 15s linear infinite;
         }
         @keyframes grid-scroll-enhanced {
           from { background-position: 0 0; }
