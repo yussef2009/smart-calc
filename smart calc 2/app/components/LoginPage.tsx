@@ -32,7 +32,7 @@ export function LoginPage() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [mouseX, mouseY]);
 
-  const mathSymbols = ['+', '−', '×', '÷', '√', 'π', '∫', 'Σ', '∞', '∆', 'θ', 'λ'];
+
 
   const handleGoogleSignIn = async () => {
     setError(null);

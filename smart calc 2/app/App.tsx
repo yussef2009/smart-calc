@@ -82,12 +82,12 @@ function FloatingSymbol({ sym, index, mouseX }: { sym: string, index: number, mo
         scale: [0.8, 1.2, 0.9]
       }}
       transition={{
-        duration: 15 + (index % 10) * 3,
+        duration: 20 + (index % 10) * 5,
         repeat: Infinity,
         ease: "linear",
-        delay: (index * 0.8) % 12
+        delay: (index * 1.2) % 15
       }}
-      className="absolute text-blue-400/25 font-mono font-bold select-none whitespace-nowrap"
+      className="absolute text-blue-400/15 font-mono font-bold select-none whitespace-nowrap"
     >
       {sym}
     </motion.span>
@@ -1200,7 +1200,7 @@ export default function App() {
         <div
           id="calculator-panel"
           className={cn(
-            "flex-shrink-0 w-full md:w-[440px] lg:w-[460px] h-full md:h-[92%] lg:h-[880px] flex flex-col min-h-0 transition-all duration-500",
+            "flex-shrink-0 w-full md:w-[400px] lg:w-[420px] h-full md:h-[88%] lg:h-[840px] flex flex-col min-h-0 transition-all duration-500",
             isDarkMode 
               ? "bg-[#1e1e2f] border-[6px] border-[#252538] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8),inset_0_2px_10px_rgba(255,255,255,0.05)]" 
               : "bg-white border-[6px] border-slate-200 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2),inset_0_2px_10px_rgba(255,255,255,0.5)]",
