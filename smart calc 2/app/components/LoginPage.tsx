@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
+import { MathBackgroundCanvas } from './MathBackgroundCanvas';
+
 import { LogIn, Sparkles, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 
@@ -101,7 +103,9 @@ export function LoginPage() {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#020205] flex items-center justify-center overflow-hidden font-sans selection:bg-blue-500/30 selection:text-white">
+    <div className="fixed inset-0 bg-transparent flex items-center justify-center overflow-hidden font-sans selection:bg-blue-500/30 selection:text-white">
+      <MathBackgroundCanvas />
+
       {/* Dynamic Background Shapes (High Quality) */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         {/* Layer 1: Ambient Mesh Blobs */}

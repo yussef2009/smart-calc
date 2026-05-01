@@ -19,7 +19,7 @@ import { useAuth } from './lib/AuthContext';
 
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
-import { saveHistoryToFirestore, fetchHistoryFromFirestore } from './lib/historyService';
+import { saveHistoryToSupabase, fetchHistoryFromSupabase } from './lib/historyService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -125,7 +125,7 @@ export default function App() {
   useEffect(() => {
     const loadHistory = async () => {
       if (user) {
-        const cloudHistory = await fetchHistoryFromFirestore(user.uid);
+        const cloudHistory = await fetchHistoryFromSupabase(user.uid);
         if (cloudHistory.length > 0) {
           setHistory(cloudHistory);
         }
@@ -242,30 +242,40 @@ export default function App() {
       const scope: Record<string, any> = { 
         Ans: Number(ans) || 0,
         ...variables,
-        // Add complex number support
         i: math.complex(0, 1),
       };
 
-      // Handle Matrix/Vector definitions if they look like [1,2;3,4]
-      let processedExpr = expr;
-      if (processedExpr.includes('Mat') || processedExpr.includes('Vct')) {
-        // Simple mock mapping for MatA, MatB, etc.
-        // In a real Casio, these are stored variables. We'll support literal entry for now.
-        // processedExpr = processedExpr.replace(/MatA/g, '[[1,2],[3,4]]');
+      let res: any;
+
+      // MODE-BASED PROCESSING
+      if (calcMode === 'ALGEBRA') {
+          // If the user didn't specify simplify/expand, default to simplify for algebra mode
+          if (!expr.includes('simplify') && !expr.includes('expand')) {
+              res = math.simplify(expr);
+          } else {
+              res = math.evaluate(expr, scope);
+          }
+      } else if (calcMode === 'CALCUS') {
+          // Automatic derivative detection if variables are present but not operator
+          if (!expr.includes('derivative') && !expr.includes('integrate') && (expr.includes('x') || expr.includes('X'))) {
+              res = math.derivative(expr, 'x');
+          } else {
+              res = math.evaluate(expr, scope);
+          }
+      } else {
+          res = math.evaluate(expr, scope);
       }
 
-      let res = math.evaluate(processedExpr, scope);
-
-      // Handle Base-N conversions if requested
+      // Base-N post-processing
       if (calcMode === 'BASE-N') {
-        if (processedExpr.endsWith('bin')) {
-           const val = typeof res === 'number' ? res : math.evaluate(processedExpr.replace('bin', ''), scope);
+        if (expr.endsWith('bin')) {
+           const val = typeof res === 'number' ? res : math.evaluate(expr.replace('bin', ''), scope);
            res = '0b' + val.toString(2);
-        } else if (processedExpr.endsWith('hex')) {
-           const val = typeof res === 'number' ? res : math.evaluate(processedExpr.replace('hex', ''), scope);
+        } else if (expr.endsWith('hex')) {
+           const val = typeof res === 'number' ? res : math.evaluate(expr.replace('hex', ''), scope);
            res = '0x' + val.toString(16).toUpperCase();
-        } else if (processedExpr.endsWith('oct')) {
-           const val = typeof res === 'number' ? res : math.evaluate(processedExpr.replace('oct', ''), scope);
+        } else if (expr.endsWith('oct')) {
+           const val = typeof res === 'number' ? res : math.evaluate(expr.replace('oct', ''), scope);
            res = '0o' + val.toString(8);
         }
       }
@@ -285,9 +295,8 @@ export default function App() {
         timestamp: Date.now()
       }, ...prev]);
 
-      // Sync to cloud if user is logged in
       if (user) {
-        saveHistoryToFirestore(user.uid, {
+        saveHistoryToSupabase(user.uid, {
           expression: expr,
           result: formatRes,
           timestamp: Date.now()
@@ -572,7 +581,7 @@ export default function App() {
         };
         setHistory(prev => [newHistoryItem, ...prev]);
         if (user) {
-          saveHistoryToFirestore(user.uid, newHistoryItem);
+          saveHistoryToSupabase(user.uid, newHistoryItem);
         }
       } else {
         setResult('Error');
@@ -714,7 +723,7 @@ export default function App() {
         };
         setHistory(prev => [newHistoryItem, ...prev]);
         if (user) {
-          saveHistoryToFirestore(user.uid, newHistoryItem);
+          saveHistoryToSupabase(user.uid, newHistoryItem);
         }
       } else {
         setResult('Error');
@@ -780,7 +789,6 @@ export default function App() {
   };
 
   const getSciRows = (mode: CalcMode): CalculatorButton[][] => {
-    // Base layout (COMP Mode)
     const baseRows: CalculatorButton[][] = [
       [
         { label: 'CALC', action: handleCalculate, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' },
@@ -814,66 +822,68 @@ export default function App() {
       ]
     ];
 
-    let currentRows = [...baseRows];
+    const currentRows = baseRows.map(row => [...row]);
 
-    if (mode === 'CMPLX') {
-      currentRows[1] = [...currentRows[1]];
-      currentRows[1][3] = { label: 'i', val: 'i', shiftLabel: '∠', alphaLabel: 'C' };
-      currentRows[1][4] = { label: 'Arg', val: 'arg(', shiftLabel: 'Conjg', alphaLabel: 'D' };
-    } else if (mode === 'BASE-N') {
-      currentRows[2] = [...currentRows[2]];
-      currentRows[2][2] = { label: 'DEC', action: () => handleAppend('dec'), shiftLabel: 'HEX', shiftAction: () => handleAppend('hex') };
-      currentRows[2][3] = { label: 'BIN', action: () => handleAppend('bin'), shiftLabel: 'OCT', shiftAction: () => handleAppend('oct') };
-    } else if (mode === 'MATRIX') {
-      currentRows[3] = [...currentRows[3]];
-      currentRows[3][0] = { label: 'MatA', val: 'MatA', shiftLabel: 'Det' };
-      currentRows[3][1] = { label: 'MatB', val: 'MatB', shiftLabel: 'Trn' };
-    } else if (mode === 'VECTOR') {
-      currentRows[3] = [...currentRows[3]];
-      currentRows[3][0] = { label: 'VctA', val: 'VctA', shiftLabel: 'Dot' };
-      currentRows[3][1] = { label: 'VctB', val: 'VctB', shiftLabel: 'Cross' };
-    } else if (mode === 'STAT') {
-      currentRows[2] = [...currentRows[2]];
-      currentRows[2][2] = { label: '1-VAR', val: '1var' };
-      currentRows[2][3] = { label: 'A+BX', val: 'a+bx' };
-    } else if (mode === 'EQN') {
-      currentRows[0] = [...currentRows[0]];
-      currentRows[0][1] = { label: 'Simul', val: 'simul(' };
-      currentRows[0][2] = { label: 'Poly', val: 'poly(' };
-    } else if (mode === 'TABLE') {
-      currentRows[3] = [...currentRows[3]];
-      currentRows[3][0] = { label: 'f(x)', val: 'f(x)=' };
-      currentRows[3][1] = { label: 'g(x)', val: 'g(x)=' };
-    } else if (mode === 'DIST') {
-      currentRows[2] = [...currentRows[2]];
-      currentRows[2][2] = { label: 'Normal', val: 'normPD(' };
-      currentRows[2][3] = { label: 'Binom', val: 'binomPD(' };
-    } else if (mode === 'LIMIT') {
-      currentRows[0] = [...currentRows[0]];
-      // Replace CALC with EVAL LIM
-      currentRows[0][0] = { label: 'EVAL', action: handleLimit, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' };
-      currentRows[0][1] = { label: 'lim→', action: () => handleAppend(', ') };
-      currentRows[0][2] = { label: '∞', val: 'Infinity' };
-    } else if (mode === 'ALGEBRA') {
-      currentRows[0] = [...currentRows[0]];
-      currentRows[0][1] = { label: 'Simplify', val: 'simplify(' };
-      currentRows[0][2] = { label: 'Expand', val: 'expand(' }; // Mock expand, math.js might not support robust expand, but we can try
-      currentRows[1] = [...currentRows[1]];
-      currentRows[1][1] = { label: 'LCM', val: 'lcm(' };
-      currentRows[1][2] = { label: 'GCD', val: 'gcd(' };
-    } else if (mode === 'CALCUS') {
-      currentRows[0] = [...currentRows[0]];
-      currentRows[0][1] = { label: 'd/dx', val: 'derivative(' };
-      currentRows[0][2] = { label: '∫', val: 'integrate(' }; // if unsupported natively, handled as text
-      currentRows[0][3] = { label: 'lim', action: handleLimit };
-    } else if (mode === 'PHYSICS') {
-      currentRows[1] = [...currentRows[1]];
-      currentRows[1][1] = { label: 'G', val: '6.674e-11' };
-      currentRows[1][2] = { label: 'c', val: '299792458' };
-      currentRows[1][3] = { label: 'h', val: '6.626e-34' };
-      currentRows[2] = [...currentRows[2]];
-      currentRows[2][1] = { label: 'e', val: '1.602e-19' };
-      currentRows[2][2] = { label: 'm_e', val: '9.109e-31' };
+    const overrides: Record<string, (rows: CalculatorButton[][]) => void> = {
+      'CMPLX': (r) => {
+        r[1][3] = { label: 'i', val: 'i', shiftLabel: '∠', alphaLabel: 'C' };
+        r[1][4] = { label: 'Arg', val: 'arg(', shiftLabel: 'Conjg', alphaLabel: 'D' };
+      },
+      'BASE-N': (r) => {
+        r[2][2] = { label: 'DEC', action: () => handleAppend('dec'), shiftLabel: 'HEX', shiftAction: () => handleAppend('hex') };
+        r[2][3] = { label: 'BIN', action: () => handleAppend('bin'), shiftLabel: 'OCT', shiftAction: () => handleAppend('oct') };
+      },
+      'MATRIX': (r) => {
+        r[3][0] = { label: 'MatA', val: 'MatA', shiftLabel: 'Det' };
+        r[3][1] = { label: 'MatB', val: 'MatB', shiftLabel: 'Trn' };
+      },
+      'VECTOR': (r) => {
+        r[3][0] = { label: 'VctA', val: 'VctA', shiftLabel: 'Dot' };
+        r[3][1] = { label: 'VctB', val: 'VctB', shiftLabel: 'Cross' };
+      },
+      'STAT': (r) => {
+        r[2][2] = { label: '1-VAR', val: '1var' };
+        r[2][3] = { label: 'A+BX', val: 'a+bx' };
+      },
+      'EQN': (r) => {
+        r[0][1] = { label: 'Simul', val: 'simul(' };
+        r[0][2] = { label: 'Poly', val: 'poly(' };
+      },
+      'TABLE': (r) => {
+        r[3][0] = { label: 'f(x)', val: 'f(x)=' };
+        r[3][1] = { label: 'g(x)', val: 'g(x)=' };
+      },
+      'DIST': (r) => {
+        r[2][2] = { label: 'Normal', val: 'normPD(' };
+        r[2][3] = { label: 'Binom', val: 'binomPD(' };
+      },
+      'LIMIT': (r) => {
+        r[0][0] = { label: 'EVAL', action: handleLimit, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' };
+        r[0][1] = { label: 'lim→', action: () => handleAppend(', ') };
+        r[0][2] = { label: '∞', val: 'Infinity' };
+      },
+      'ALGEBRA': (r) => {
+        r[0][1] = { label: 'Simplify', val: 'simplify(' };
+        r[0][2] = { label: 'Expand', val: 'expand(' };
+        r[1][1] = { label: 'LCM', val: 'lcm(' };
+        r[1][2] = { label: 'GCD', val: 'gcd(' };
+      },
+      'CALCUS': (r) => {
+        r[0][1] = { label: 'd/dx', val: 'derivative(' };
+        r[0][2] = { label: '∫', val: 'integrate(' };
+        r[0][3] = { label: 'lim', action: handleLimit };
+      },
+      'PHYSICS': (r) => {
+        r[1][1] = { label: 'G', val: '6.674e-11' };
+        r[1][2] = { label: 'c', val: '299792458' };
+        r[1][3] = { label: 'h', val: '6.626e-34' };
+        r[2][1] = { label: 'e', val: '1.602e-19' };
+        r[2][2] = { label: 'm_e', val: '9.109e-31' };
+      }
+    };
+
+    if (overrides[mode]) {
+      overrides[mode](currentRows);
     }
 
     return currentRows;
@@ -997,7 +1007,7 @@ export default function App() {
   return (
     <div className={cn(
       "h-[100dvh] flex flex-col font-sans selection:bg-blue-500/30 overflow-hidden transition-colors duration-500",
-      isDarkMode ? "text-slate-200 bg-[#070b14]" : "text-slate-900 bg-[#f8fafc]"
+      isDarkMode ? "text-slate-200 bg-transparent" : "text-slate-900 bg-transparent"
     )}>
       
       {/* SYSTEM TOP BAR */}
@@ -1086,9 +1096,9 @@ export default function App() {
           className={cn(
             "flex-shrink-0 flex flex-col min-h-0 transition-all duration-500",
             isDarkMode 
-              ? "bg-[#1e1e2f] border-[6px] border-[#252538] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8),inset_0_2px_10px_rgba(255,255,255,0.05)]" 
-              : "bg-white border-[6px] border-slate-200 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2),inset_0_2px_10px_rgba(255,255,255,0.5)]",
-            "md:rounded-[48px] overflow-hidden relative group/calc"
+              ? "bg-[#11111d]/95 border-[1px] border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,1),inset_0_1px_1px_rgba(255,255,255,0.1)]" 
+              : "bg-white/95 border-[1px] border-slate-200 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.8)]",
+            "md:rounded-[40px] overflow-hidden relative group/calc backdrop-blur-3xl"
           )}
         >
           {/* High Quality Reflections & Texture */}
@@ -1317,13 +1327,12 @@ export default function App() {
             className={cn(
             // Mobile: full-screen overlay
             "fixed inset-0 z-50 flex flex-col transition-all duration-500",
-            isDarkMode ? "bg-[#1a1a2e]" : "bg-white",
             // Desktop: sits beside calculator, full height
-            "md:relative md:inset-auto md:z-auto md:flex-1 md:h-full md:overflow-hidden md:border",
+            "md:relative md:inset-auto md:z-auto md:flex-1 md:h-full md:overflow-hidden md:border-[1px]",
             isDarkMode 
-              ? "md:border-slate-800/60 md:bg-[#1a1a2e]/80 md:backdrop-blur-xl" 
-              : "md:border-slate-200 md:bg-white/80 md:backdrop-blur-xl md:shadow-2xl md:shadow-black/5",
-            "md:rounded-[32px]" // Round corners on desktop
+              ? "bg-[#0b0b14]/80 border-white/10 backdrop-blur-3xl" 
+              : "bg-white/80 border-slate-200/60 backdrop-blur-3xl shadow-2xl shadow-black/10",
+            "md:rounded-[40px]" // Match calculator radius
           )}>
             
             {/* Tabs & Mobile Close */}

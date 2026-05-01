@@ -8,7 +8,7 @@ export interface HistoryItem {
   userId?: string;
 }
 
-export const saveHistoryToFirestore = async (userId: string, item: Omit<HistoryItem, 'id' | 'userId'>) => {
+export const saveHistoryToSupabase = async (userId: string, item: Omit<HistoryItem, 'id' | 'userId'>) => {
   // Local storage fallback for Demo/Mock Mode or missing config
   if (userId.startsWith('guest_') || userId.startsWith('mock_')) {
     const localHistory = JSON.parse(localStorage.getItem('smart_calc_history') || '[]');
@@ -37,7 +37,7 @@ export const saveHistoryToFirestore = async (userId: string, item: Omit<HistoryI
   }
 };
 
-export const fetchHistoryFromFirestore = async (userId: string) => {
+export const fetchHistoryFromSupabase = async (userId: string) => {
   if (userId.startsWith('guest_') || userId.startsWith('mock_')) {
     const localHistory = JSON.parse(localStorage.getItem('smart_calc_history') || '[]');
     return localHistory.filter((h: any) => h.userId === userId);
