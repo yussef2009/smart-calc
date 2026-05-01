@@ -58,15 +58,15 @@ interface CalculatorButton {
   type?: 'num' | 'ctrl' | 'op';
 }
 
-function FloatingSymbol({ sym, index, mouseX }: { sym: string, index: number, mouseX: any }) {
+  function FloatingSymbol({ sym, index, mouseX }: { sym: string, index: number, mouseX: any }) {
   const baseX = (index * 13) % 100;
   const x = useTransform(mouseX, [-0.5, 0.5], [`${baseX}%`, `${baseX + 5}%`]);
 
   return (
     <motion.span
       style={{ 
-        fontSize: `${12 + (index % 6) * 6}px`,
-        filter: 'blur(0.5px)',
+        fontSize: `${10 + (index % 4) * 4}px`, // Reduced size and variance
+        filter: 'blur(0.8px)',
         x,
       }}
       initial={{ 
@@ -77,17 +77,17 @@ function FloatingSymbol({ sym, index, mouseX }: { sym: string, index: number, mo
       }}
       animate={{ 
         y: '-20vh',
-        opacity: [0, 0.4, 0.4, 0],
-        rotate: [0, (index % 2 === 0 ? 360 : -360)],
-        scale: [0.8, 1.2, 0.9]
+        opacity: [0, 0.12, 0.12, 0], // Reduced opacity
+        rotate: [0, (index % 2 === 0 ? 180 : -180)], // Slower rotation
+        scale: [0.8, 1, 0.8]
       }}
       transition={{
-        duration: 20 + (index % 10) * 5,
+        duration: 25 + (index % 10) * 8, // Slower duration
         repeat: Infinity,
         ease: "linear",
-        delay: (index * 1.2) % 15
+        delay: (index * 1.5) % 20
       }}
-      className="absolute text-blue-400/15 font-mono font-bold select-none whitespace-nowrap"
+      className="absolute text-blue-400/20 font-mono font-bold select-none whitespace-nowrap"
     >
       {sym}
     </motion.span>
@@ -118,9 +118,9 @@ export default function App() {
   const [calcMode, setCalcMode] = useState<CalcMode>('COMP');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [calcScale, setCalcScale] = useState(1.0); // New state for calculator size
+  const [sidebarWidth, setSidebarWidth] = useState(450); // New state for sidebar size
 
-  
-  // OCR State
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   
@@ -966,19 +966,19 @@ export default function App() {
 
     return (
       <div key={i} className="flex flex-col items-center col-span-1 group/btn">
-        <div className="flex w-full justify-between px-[3px] mb-[3px] h-[12px] transition-all opacity-70 group-hover/btn:opacity-100">
-          <span className="text-[9px] font-black text-amber-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.shiftLabel}</span>
-          <span className="text-[9px] font-black text-red-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.alphaLabel}</span>
+        <div className="flex w-full justify-around px-[1px] mb-[1px] h-[10px] transition-all opacity-60 group-hover/btn:opacity-100">
+          <span className="text-[7px] font-black text-amber-500 leading-none truncate max-w-[50%]">{btn.shiftLabel}</span>
+          <span className="text-[7px] font-black text-red-500 leading-none truncate max-w-[50%]">{btn.alphaLabel}</span>
         </div>
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-8 sm:h-8.5 rounded-xl text-[10px] font-black border transition-all active:translate-y-[2px] active:shadow-none",
+            "w-full h-7 sm:h-7.5 rounded-lg text-[9px] font-black border transition-all active:translate-y-[1px] active:shadow-none",
             baseClass,
             specialClass
           )}
         >
-          <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">{btn.label}</span>
+          <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">{btn.label}</span>
         </button>
       </div>
     );
@@ -1007,14 +1007,14 @@ export default function App() {
 
     return (
       <div key={i} className="flex flex-col items-center col-span-1 group/btn">
-        <div className="flex w-full justify-between px-2 mb-[4px] h-[12px] transition-all opacity-60 group-hover/btn:opacity-100">
-          <span className="text-[9px] font-black text-amber-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.shiftLabel}</span>
-          <span className="text-[9px] font-black text-red-500 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">{btn.alphaLabel}</span>
+        <div className="flex w-full justify-around px-1 mb-[2px] h-[10px] transition-all opacity-60 group-hover/btn:opacity-100">
+          <span className="text-[7px] font-black text-amber-500 leading-none truncate max-w-[50%]">{btn.shiftLabel}</span>
+          <span className="text-[7px] font-black text-red-500 leading-none truncate max-w-[50%]">{btn.alphaLabel}</span>
         </div>
         <button
           onClick={() => handleBtnClick(btn)}
           className={cn(
-            "w-full h-10 sm:h-12 rounded-2xl text-xl font-black border transition-all active:translate-y-[3px] active:shadow-none",
+            "w-full h-9 sm:h-11 rounded-2xl text-lg font-black border transition-all active:translate-y-[2px] active:shadow-none",
             variantClass
           )}
         >
@@ -1199,8 +1199,12 @@ export default function App() {
         {/* ── CALCULATOR PANEL ── */}
         <div
           id="calculator-panel"
+          style={{ 
+            width: window.innerWidth > 768 ? `${400 * calcScale}px` : '100%',
+            height: window.innerWidth > 768 ? `${840 * calcScale}px` : '100%',
+          }}
           className={cn(
-            "flex-shrink-0 w-full md:w-[400px] lg:w-[420px] h-full md:h-[88%] lg:h-[840px] flex flex-col min-h-0 transition-all duration-500",
+            "flex-shrink-0 flex flex-col min-h-0 transition-all duration-500",
             isDarkMode 
               ? "bg-[#1e1e2f] border-[6px] border-[#252538] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8),inset_0_2px_10px_rgba(255,255,255,0.05)]" 
               : "bg-white border-[6px] border-slate-200 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.2),inset_0_2px_10px_rgba(255,255,255,0.5)]",
@@ -1423,12 +1427,17 @@ export default function App() {
 
         {/* ── SIDEBAR PANEL ── */}
         {isSidebarOpen && (
-          <div id="sidebar-panel" className={cn(
+          <div id="sidebar-panel" 
+            style={{ 
+              width: window.innerWidth > 768 ? `${sidebarWidth}px` : '100%',
+              maxWidth: window.innerWidth > 768 ? '800px' : 'none'
+            }}
+            className={cn(
             // Mobile: full-screen overlay
             "fixed inset-0 z-50 flex flex-col transition-all duration-500",
             isDarkMode ? "bg-[#1a1a2e]" : "bg-white",
             // Desktop: sits beside calculator, full height
-            "md:relative md:inset-auto md:z-auto md:flex-1 md:min-w-[400px] md:max-w-[500px] md:h-full md:overflow-hidden md:border",
+            "md:relative md:inset-auto md:z-auto md:flex-1 md:h-full md:overflow-hidden md:border",
             isDarkMode 
               ? "md:border-slate-800/60 md:bg-[#1a1a2e]/80 md:backdrop-blur-xl" 
               : "md:border-slate-200 md:bg-white/80 md:backdrop-blur-xl md:shadow-2xl md:shadow-black/5",
@@ -2042,6 +2051,38 @@ export default function App() {
                 </div>
               </div>
               
+              <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6 space-y-6">
+                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-blue-400" /> UI Dimensions
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs text-slate-400">Calculator Scale: <span className="text-blue-400 font-mono">{(calcScale * 100).toFixed(0)}%</span></label>
+                      <button onClick={() => setCalcScale(1.0)} className="text-[10px] text-slate-500 hover:text-white transition-colors">Reset</button>
+                    </div>
+                    <input 
+                      type="range" min="0.5" max="1.5" step="0.05" 
+                      value={calcScale} onChange={(e) => setCalcScale(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs text-slate-400">Sidebar Width: <span className="text-blue-400 font-mono">{sidebarWidth}px</span></label>
+                      <button onClick={() => setSidebarWidth(450)} className="text-[10px] text-slate-500 hover:text-white transition-colors">Reset</button>
+                    </div>
+                    <input 
+                      type="range" min="300" max="800" step="10" 
+                      value={sidebarWidth} onChange={(e) => setSidebarWidth(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
                 <p className="text-xs text-slate-400 text-center">
                   Current: X [{tempWindowSettings.xMin.toFixed(1)}, {tempWindowSettings.xMax.toFixed(1)}] Y [{tempWindowSettings.yMin.toFixed(1)}, {tempWindowSettings.yMax.toFixed(1)}]
