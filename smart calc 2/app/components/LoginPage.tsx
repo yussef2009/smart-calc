@@ -29,7 +29,7 @@ export function LoginPage() {
 
   const handleManualAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!turnstileToken) {
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
       setError("Please verify you are human.");
       return;
     }
@@ -37,9 +37,9 @@ export function LoginPage() {
     setIsLoading(true);
     try {
       if (isSignUp) {
-        await signUpWithEmail(email, password, name, turnstileToken);
+        await signUpWithEmail(email, password, name, turnstileToken || undefined);
       } else {
-        await signInWithEmail(email, password, turnstileToken);
+        await signInWithEmail(email, password, turnstileToken || undefined);
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed.");
@@ -187,14 +187,16 @@ export function LoginPage() {
               </div>
 
               {/* Cloudflare Turnstile */}
-              <div className="flex justify-center pt-2">
-                <Turnstile 
-                  siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} 
-                  onSuccess={setTurnstileToken}
-                  options={{ theme: 'dark' }}
-                  scriptOptions={{ async: true, defer: true }}
-                />
-              </div>
+              {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
+                <div className="flex justify-center pt-2">
+                  <Turnstile 
+                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY} 
+                    onSuccess={setTurnstileToken}
+                    options={{ theme: 'dark' }}
+                    scriptOptions={{ async: true, defer: true }}
+                  />
+                </div>
+              )}
 
               <motion.button
                 whileHover={{ scale: 1.02 }}
