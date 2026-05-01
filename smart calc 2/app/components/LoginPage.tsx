@@ -89,9 +89,9 @@ export function LoginPage() {
     setIsLoading(true);
     try {
       if (isSignUp) {
-        await signUpWithEmail(email, password, name);
+        await signUpWithEmail(email, password, name, turnstileToken);
       } else {
-        await signInWithEmail(email, password);
+        await signInWithEmail(email, password, turnstileToken);
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed.");
@@ -339,6 +339,7 @@ export function LoginPage() {
                   siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'} 
                   onSuccess={setTurnstileToken}
                   options={{ theme: 'dark' }}
+                  scriptOptions={{ async: true, defer: true }}
                 />
               </div>
 

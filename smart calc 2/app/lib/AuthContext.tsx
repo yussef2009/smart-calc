@@ -5,8 +5,8 @@ interface AuthContextType {
   user: any | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, pass: string) => Promise<void>;
-  signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
+   signInWithEmail: (email: string, pass: string, captchaToken?: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, name: string, captchaToken?: string) => Promise<void>;
   loginAsGuest: () => void;
   logout: () => Promise<void>;
   isDemo: boolean;
@@ -70,10 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithEmail = async (email: string, pass: string) => {
+  const signInWithEmail = async (email: string, pass: string, captchaToken?: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password: pass,
+      options: {
+        captchaToken
+      }
     });
 
     if (error) {
@@ -84,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUpWithEmail = async (email: string, pass: string, name: string) => {
+  const signUpWithEmail = async (email: string, pass: string, name: string, captchaToken?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: pass,
@@ -93,7 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           display_name: name,
           full_name: name
         },
-        emailRedirectTo: window.location.origin
+        emailRedirectTo: window.location.origin,
+        captchaToken
       }
     });
 

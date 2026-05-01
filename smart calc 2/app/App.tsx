@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+
 import * as math from 'mathjs';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
@@ -14,7 +14,9 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Tesseract from 'tesseract.js';
+import { MathBackgroundCanvas } from './components/MathBackgroundCanvas';
 import { useAuth } from './lib/AuthContext';
+
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { saveHistoryToFirestore, fetchHistoryFromFirestore } from './lib/historyService';
@@ -58,41 +60,7 @@ interface CalculatorButton {
   type?: 'num' | 'ctrl' | 'op';
 }
 
-  function FloatingSymbol({ sym, index, mouseX }: { sym: string, index: number, mouseX: any }) {
-  const baseX = (index * 13) % 100;
-  const x = useTransform(mouseX, [-0.5, 0.5], [`${baseX}%`, `${baseX + 5}%`]);
 
-  return (
-    <motion.span
-      style={{ 
-        fontSize: `${10 + (index % 4) * 4}px`, // Reduced size and variance
-        filter: 'blur(0.8px)',
-        x,
-      }}
-      initial={{ 
-        y: '110vh', 
-        opacity: 0,
-        rotate: 0,
-        scale: 0.8
-      }}
-      animate={{ 
-        y: '-20vh',
-        opacity: [0, 0.12, 0.12, 0], // Reduced opacity
-        rotate: [0, (index % 2 === 0 ? 180 : -180)], // Slower rotation
-        scale: [0.8, 1, 0.8]
-      }}
-      transition={{
-        duration: 25 + (index % 10) * 8, // Slower duration
-        repeat: Infinity,
-        ease: "linear",
-        delay: (index * 1.5) % 20
-      }}
-      className="absolute text-blue-400/20 font-mono font-bold select-none whitespace-nowrap"
-    >
-      {sym}
-    </motion.span>
-  );
-}
 
 export default function App() {
   const [expression, setExpression] = useState('');
@@ -140,23 +108,9 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // Mouse tracking for background parallax
-  const bgMouseX = useMotionValue(0);
-  const bgMouseY = useMotionValue(0);
-  const smoothBgX = useSpring(bgMouseX, { damping: 50, stiffness: 200 });
-  const smoothBgY = useSpring(bgMouseY, { damping: 50, stiffness: 200 });
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      bgMouseX.set((e.clientX / window.innerWidth) - 0.5);
-      bgMouseY.set((e.clientY / window.innerHeight) - 0.5);
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
 
-  const gridRotateX = useTransform(smoothBgY, [-0.5, 0.5], [60, 70]);
-  const gridRotateY = useTransform(smoothBgX, [-0.5, 0.5], [-5, 5]);
+
   
   const displayRef = useRef<HTMLDivElement>(null);
 
@@ -795,6 +749,9 @@ export default function App() {
   };
 
   const handleBtnClick = (btn: any) => {
+    // Dispatch pulse event to background
+    window.dispatchEvent(new CustomEvent('math-calc-pulse'));
+
     if (error) setError('');
     
     if (isShift) {
@@ -1111,107 +1068,7 @@ export default function App() {
       </div>
 
       {/* ====== RICH MOTION BACKGROUND ====== */}
-      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden bg-[#070b14]">
-        {/* Layer 1 – Dynamic Mesh Blobs (High Quality) */}
-        <motion.div 
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.15, 0.25, 0.15],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 blur-[150px] rounded-full pointer-events-none"
-        />
-        <motion.div 
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.1, 0.2, 0.1],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-purple-600/20 blur-[150px] rounded-full pointer-events-none"
-        />
-        <motion.div 
-          style={{
-            x: useTransform(smoothBgX, [-0.5, 0.5], [-200, 200]),
-            y: useTransform(smoothBgY, [-0.5, 0.5], [-200, 200]),
-          }}
-          className="absolute top-1/4 left-1/4 w-[40%] h-[40%] bg-indigo-500/10 blur-[180px] rounded-full pointer-events-none"
-        />
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            x: [0, 100, 0],
-            y: [0, 50, 0],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-blue-600/10 blur-[120px] rounded-full"
-        />
-        <motion.div
-          animate={{
-            scale: [1.1, 0.9, 1.1],
-            x: [0, -80, 0],
-            y: [0, 120, 0],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full"
-        />
-        <motion.div
-          animate={{
-            scale: [1, 1.3, 1],
-            rotate: [0, 360],
-          }}
-          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[20%] right-[10%] w-[40%] h-[40%] bg-cyan-500/5 blur-[100px] rounded-full"
-        />
-
-        {/* Layer 2 – Perspective Grid Floor (Enhanced) */}
-        <motion.div 
-          style={{ 
-            rotateX: 65, 
-            translateZ: 0,
-            x: useTransform(smoothBgX, [-0.5, 0.5], [-50, 50])
-          }}
-          className="absolute inset-x-[-100%] bottom-[-50%] h-[180%] origin-center pointer-events-none"
-        >
-          <div className="w-full h-full grid-perspective-enhanced" />
-        </motion.div>
-
-        {/* Layer 3 – Rising Particles & Symbols */}
-        <div className="absolute inset-0 pointer-events-none">
-          {[
-            '∑', '∫', 'π', '√', '∞', 'Δ', '∂', 'λ', 'α', 'θ', '≡', '∇',
-            'lim', 'sin', 'cos', 'tan', 'log', 'ln', 'f(x)', 'dy/dx', 
-            'exp', 'Σ', 'Π', 'δ', 'ψ', 'ζ', 'η', 'φ', 'ω'
-          ].map((sym, i) => (
-            <FloatingSymbol 
-              key={i} 
-              sym={sym} 
-              index={i} 
-              mouseX={smoothBgX} 
-            />
-          ))}
-        </div>
-
-        {/* Layer 4 – Aurora sweeping bands (Legacy for depth) */}
-        <div className="aurora-band aurora-band-1" />
-        <div className="aurora-band aurora-band-2" />
-        <div className="aurora-band aurora-band-3" />
-
-        {/* Layer 5 – Star-like rising particles */}
-        {[...Array(30)].map((_, i) => (
-          <div
-            key={i}
-            className="star-particle"
-            style={{
-              left: `${(i * 3.4) % 100}%`,
-              bottom: `${Math.floor(i * 7.7) % 60}%`,
-              width: `${1 + (i % 3)}px`,
-              height: `${1 + (i % 3)}px`,
-              animationDelay: `${(i * 0.7) % 8}s`,
-              animationDuration: `${6 + (i % 8)}s`,
-            }}
-          />
-        ))}
-      </div>
+      <MathBackgroundCanvas />
 
       {/* ── MAIN AREA ── */}
       <div id="main-area" className={cn(
