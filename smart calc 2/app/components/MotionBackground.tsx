@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useEffect } from 'react';
 
 const mathShapes = [
   { type: 'text', content: '+', size: '4rem' },
@@ -52,9 +53,65 @@ const mathShapes = [
   { type: 'shape', content: 'circle', size: 'w-32 h-32 rounded-full border-[6px]' },
   { type: 'shape', content: 'square', size: 'w-28 h-28 border-[6px]' },
   { type: 'shape', content: 'triangle', size: 'w-0 h-0 border-l-[25px] border-l-transparent border-r-[25px] border-r-transparent border-b-[43px] border-b-current' },
+  { type: 'text', content: 'sin', size: '3.5rem' },
+  { type: 'text', content: 'cos', size: '3.5rem' },
+  { type: 'text', content: 'tan', size: '3.5rem' },
+  { type: 'text', content: 'log', size: '3.5rem' },
+  { type: 'text', content: '⊖', size: '4.5rem' },
+  { type: 'text', content: 'π', size: '4.5rem' },
+  { type: 'text', content: '∫', size: '6rem' },
+  { type: 'text', content: '∑', size: '5rem' },
+  { type: 'text', content: '∞', size: '5.5rem' },
+  { type: 'text', content: '≈', size: '5rem' },
+  { type: 'text', content: 'Δ', size: '4rem' },
+  { type: 'text', content: '√', size: '5rem' },
+  { type: 'text', content: 'μ', size: '4rem' },
+  { type: 'text', content: 'Ω', size: '4.5rem' },
+  { type: 'text', content: 'θ', size: '4.5rem' },
+  { type: 'text', content: 'λ', size: '5rem' },
+  { type: 'shape', content: 'circle', size: 'w-20 h-20 rounded-full border-[3px]' },
+  { type: 'shape', content: 'square', size: 'w-16 h-16 border-[3px]' },
+  { type: 'shape', content: 'triangle', size: 'w-0 h-0 border-l-[30px] border-l-transparent border-r-[30px] border-r-transparent border-b-[52px] border-b-current' },
+  { type: 'text', content: 'sin', size: '4rem' },
+  { type: 'text', content: 'cos', size: '4rem' },
+  { type: 'text', content: 'tan', size: '4rem' },
+  { type: 'text', content: 'log', size: '4rem' },
 ];
 
 export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+      
+      const wrappers = document.querySelectorAll('.math-shape-wrapper');
+      wrappers.forEach((wrapper) => {
+        const el = wrapper as HTMLElement;
+        const centerX = (parseFloat(el.style.left) / 100) * window.innerWidth;
+        const centerY = (parseFloat(el.style.top) / 100) * window.innerHeight;
+        
+        const distX = mouseX - centerX;
+        const distY = mouseY - centerY;
+        const distance = Math.sqrt(distX * distX + distY * distY);
+        
+        const repelRadius = 250;
+        if (distance < repelRadius && distance > 0) {
+          const force = Math.pow((repelRadius - distance) / repelRadius, 1.2);
+          const pushX = -(distX / distance) * force * 120;
+          const pushY = -(distY / distance) * force * 120;
+          el.style.transition = 'transform 0.15s ease-out';
+          el.style.transform = `translate3d(${pushX}px, ${pushY}px, 0)`;
+        } else {
+          el.style.transition = 'transform 0.8s ease-out';
+          el.style.transform = `translate3d(0px, 0px, 0)`;
+        }
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   return (
     <div className={`fixed inset-0 z-0 overflow-hidden transition-colors duration-700 ${isDarkMode ? 'bg-[#0B0F19]' : 'bg-white'}`}>
       {/* Background Blobs */}
@@ -103,16 +160,35 @@ export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
       {/* Floating 3D Math Shapes */}
       <div className="absolute inset-0 pointer-events-none" style={{ perspective: '1200px' }}>
         {mathShapes.map((item, index) => {
-          // Wider distribution across the screen
-          const initialX = (index * 37) % 90 + 5; 
-          const initialY = (index * 29) % 90 + 5;
+          // Random distribution across the screen
+          const initialX = Math.random() * 100;
+          const initialY = Math.random() * 100;
           const randomDuration = (12 + ((index * 5) % 15)) * 0.8; // Faster by 20%
           const randomDelay = (index * 1.5) % 8;
           
-          // Randomize 3D motion paths
-          const xPath = index % 2 === 0 ? [0, 60, -60, 0] : [0, -70, 70, 0];
-          const yPath = index % 3 === 0 ? [0, -80, 80, 0] : [0, 90, -90, 0];
-          const zPath = index % 4 === 0 ? [0, 200, -100, 0] : [0, -150, 150, 0];
+          // Organized motion paths
+          const motionType = index % 4;
+          let xPath, yPath;
+          
+          if (motionType === 0) {
+            // Diagonal
+            xPath = [0, 100, -100, 0];
+            yPath = [0, -100, 100, 0];
+          } else if (motionType === 1) {
+            // Vertical Up and Down
+            xPath = [0, 0, 0, 0];
+            yPath = [0, -150, 150, 0];
+          } else if (motionType === 2) {
+            // Horizontal Left and Right
+            xPath = [0, 150, -150, 0];
+            yPath = [0, 0, 0, 0];
+          } else {
+            // Circular approximation
+            xPath = [0, 100, 0, -100, 0];
+            yPath = [-100, 0, 100, 0, -100];
+          }
+          
+          const zPath = index % 2 === 0 ? [0, 100, -100, 0] : [0, -100, 100, 0];
 
           // Dynamic colors over time
           const getPalette = () => {
@@ -124,14 +200,17 @@ export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
           };
 
           return (
-            <motion.div
-              key={index}
-              className="absolute font-mono font-bold flex items-center justify-center transition-colors duration-700"
-              style={{
-                left: `${initialX}%`,
-                top: `${initialY}%`,
-                transformStyle: 'preserve-3d',
-              }}
+            <div 
+              key={index} 
+              className="math-shape-wrapper absolute" 
+              style={{ left: `${initialX}%`, top: `${initialY}%` }}
+            >
+              <motion.div
+                className="absolute font-mono font-bold flex items-center justify-center transition-colors duration-700"
+                style={{
+                  transformStyle: 'preserve-3d',
+                }}
+                initial={{ scale: 0.35 }}
               animate={{
                 y: yPath,
                 x: xPath,
@@ -139,7 +218,8 @@ export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
                 rotateX: index % 2 === 0 ? [0, 360] : [360, 0],
                 rotateY: index % 3 === 0 ? [0, 360] : [360, 0],
                 rotateZ: [0, 180, 360],
-                opacity: [0.4, 0.8, 0.4], // Appear at 80% max
+                opacity: [0.3, 0.7, 0.3], // Appear at 70% max
+                scale: 0.35,
                 color: getPalette(),
               }}
               transition={{
@@ -156,7 +236,8 @@ export const MotionBackground = ({ isDarkMode }: { isDarkMode: boolean }) => {
                   className={`${item.size} ${item.content !== 'triangle' ? 'border-current' : ''} drop-shadow-sm`} 
                 />
               )}
-            </motion.div>
+              </motion.div>
+            </div>
           );
         })}
       </div>

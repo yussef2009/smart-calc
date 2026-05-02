@@ -60,7 +60,45 @@ interface CalculatorButton {
   type?: 'num' | 'ctrl' | 'op';
 }
 
-
+const solveEquation = (expr: string): { result: string, steps: Step[] } => {
+  const parts = expr.split('=');
+  if (parts.length !== 2) throw new Error("Equation must have exactly one '=' sign");
+  const lhs = parts[0].trim();
+  const rhs = parts[1].trim();
+  const f_expr = `(${lhs}) - (${rhs})`;
+  const varPattern = /\b([a-zA-Z])\b/g;
+  const matches = f_expr.match(varPattern) || [];
+  const knownVars = ['A', 'B', 'C', 'D', 'E', 'F', 'X', 'Y', 'M', 'x', 'y'];
+  const detected = [...new Set(matches.filter(v => knownVars.includes(v)))];
+  const variable = detected.length > 0 ? detected[0] : 'X';
+  const steps: Step[] = [];
+  steps.push({ title: "Formulate Equation", desc: `Find root for f(${variable}) = ${f_expr} = 0` });
+  const compiled = math.compile(f_expr);
+  const f = (val: number) => compiled.evaluate({ [variable]: val, [variable.toUpperCase()]: val, [variable.toLowerCase()]: val });
+  let x0 = 0;
+  let x1 = 1;
+  let y0 = f(x0);
+  let y1 = f(x1);
+  let iter = 0;
+  for (; iter < 50; iter++) {
+    if (Math.abs(y1) < 1e-10) break;
+    if (Math.abs(y1 - y0) < 1e-14) {
+      x1 += 0.1;
+      y1 = f(x1);
+      if (Math.abs(y1 - y0) < 1e-14) throw new Error("Could not converge. Equation might have no real roots.");
+    }
+    let x2 = x1 - y1 * (x1 - x0) / (y1 - y0);
+    x0 = x1;
+    y0 = y1;
+    x1 = x2;
+    y1 = f(x1);
+  }
+  if (Math.abs(y1) > 1e-5) throw new Error("No real solution found");
+  const res = math.format(x1, { precision: 10 });
+  steps.push({ title: "Iterative Solve", desc: `Secant method converged in ${iter} iterations` });
+  steps.push({ title: "Numerical Solution", desc: `${variable} ≈ ${res}` });
+  return { result: res, steps };
+};
 
 export default function App() {
   const [expression, setExpression] = useState('');
@@ -262,6 +300,9 @@ export default function App() {
           } else {
               res = math.evaluate(expr, scope);
           }
+      } else if (calcMode === 'EQN' && expr.includes('=')) {
+          const eqRes = solveEquation(expr);
+          res = eqRes.result;
       } else {
           res = math.evaluate(expr, scope);
       }
@@ -377,47 +418,184 @@ export default function App() {
   const generateExplanation = (expr: string, isGraph: boolean | string = false) => {
     const newSteps: Step[] = [];
     try {
-      // Handle text explanations (mode changes, etc.)
+      // System messages (mode change, scan result, etc.)
       if (typeof isGraph === 'string') {
-        newSteps.push({ title: 'System Message', desc: expr });
+        newSteps.push({ title: '💬 System Message', desc: expr });
         setSteps(newSteps);
         setError('');
         return;
       }
 
-      const node = math.parse(expr);
-      newSteps.push({ title: 'Parsed Expression', desc: node.toString() });
-      
-      if (isGraph === true) {
-         newSteps.push({ title: 'Function Identified', desc: `f(x) = ${expr}` });
-         newSteps.push({ title: 'Action', desc: `Plotted over domain [${windowSettings.xMin}, ${windowSettings.xMax}]` });
-         setSteps(newSteps);
-         setError('');
-         return;
+      // EQN mode – use secant solver
+      if (calcMode === 'EQN' && expr.includes('=')) {
+        const eqRes = solveEquation(expr);
+        setSteps(eqRes.steps);
+        setError('');
+        return;
       }
-      
+
+      // Graph mode – just describe the plot
+      if (isGraph === true) {
+        newSteps.push({ title: '📐 Function Identified', desc: `f(x) = ${expr}` });
+        newSteps.push({ title: '📊 Domain', desc: `x ∈ [${windowSettings.xMin}, ${windowSettings.xMax}]` });
+        newSteps.push({ title: '📈 Action', desc: `Evaluated at 200 sample points and plotted` });
+        setSteps(newSteps);
+        setError('');
+        return;
+      }
+
+      // ALGEBRA mode – symbolic simplification
+      if (calcMode === 'ALGEBRA') {
+        newSteps.push({ title: '🔢 Input Expression', desc: expr });
+        try {
+          const simplified = math.simplify(expr).toString();
+          newSteps.push({ title: '✏️ Simplified', desc: simplified });
+          try {
+            const expanded = math.simplify(expr, []).toString();
+            if (expanded !== simplified) newSteps.push({ title: '🔄 Expanded', desc: expanded });
+          } catch (_) { /* ignore */ }
+        } catch (e) {
+          newSteps.push({ title: '⚠️ Note', desc: 'Could not simplify symbolically — evaluating numerically.' });
+          const res = math.evaluate(expr, { Ans: Number(ans) || 0 });
+          newSteps.push({ title: '✅ Result', desc: String(res) });
+        }
+        setSteps(newSteps);
+        setError('');
+        return;
+      }
+
+      // CALCUS mode – derivative/limit
+      if (calcMode === 'CALCUS') {
+        newSteps.push({ title: '🧮 Expression', desc: expr });
+        if (!expr.includes('derivative') && !expr.includes('integrate') && (expr.includes('x') || expr.includes('X'))) {
+          newSteps.push({ title: '🎯 Operation', desc: 'Computing derivative d/dx' });
+          const d = math.derivative(expr, 'x');
+          newSteps.push({ title: '📐 Derivative', desc: `d/dx [${expr}] = ${d.toString()}` });
+          try {
+            const simplified = math.simplify(d.toString()).toString();
+            if (simplified !== d.toString()) newSteps.push({ title: '✏️ Simplified', desc: simplified });
+          } catch (_) {}
+        } else {
+          const res = math.evaluate(expr, { Ans: Number(ans) || 0 });
+          newSteps.push({ title: '✅ Result', desc: math.format(res, { precision: 12 }) });
+        }
+        setSteps(newSteps);
+        setError('');
+        return;
+      }
+
+      // CMPLX mode
+      if (calcMode === 'CMPLX') {
+        newSteps.push({ title: '🔵 Complex Expression', desc: expr });
+        const res = math.evaluate(expr, { Ans: Number(ans) || 0, i: math.complex(0, 1) });
+        if (math.isComplex(res)) {
+          const c = res as math.Complex;
+          newSteps.push({ title: '📦 Standard Form', desc: `${math.format(c.re, {precision:10})} + ${math.format(c.im, {precision:10})}i` });
+          const magnitude = Math.sqrt(c.re * c.re + c.im * c.im);
+          const angle = Math.atan2(c.im, c.re) * (180 / Math.PI);
+          newSteps.push({ title: '📏 Magnitude |z|', desc: `${math.format(magnitude, {precision:10})}` });
+          newSteps.push({ title: '📐 Argument arg(z)', desc: `${math.format(angle, {precision:6})}°` });
+          newSteps.push({ title: '🌀 Polar Form', desc: `${math.format(magnitude, {precision:6})} · e^(i·${math.format(angle * Math.PI / 180, {precision:6})})` });
+        } else {
+          newSteps.push({ title: '✅ Result', desc: String(res) });
+        }
+        setSteps(newSteps);
+        setError('');
+        return;
+      }
+
+      // BASE-N mode
+      if (calcMode === 'BASE-N') {
+        newSteps.push({ title: '🔢 Input', desc: expr });
+        const res = math.evaluate(expr.replace(/(bin|hex|oct)$/, ''), { Ans: Number(ans) || 0 });
+        if (typeof res === 'number' && Number.isInteger(res)) {
+          newSteps.push({ title: '🔟 Decimal (Base 10)', desc: `${res}` });
+          newSteps.push({ title: '2️⃣ Binary (Base 2)', desc: `0b${res.toString(2)}` });
+          newSteps.push({ title: '8️⃣ Octal (Base 8)', desc: `0o${res.toString(8)}` });
+          newSteps.push({ title: '🔡 Hexadecimal (Base 16)', desc: `0x${res.toString(16).toUpperCase()}` });
+        } else {
+          newSteps.push({ title: '✅ Result', desc: String(res) });
+        }
+        setSteps(newSteps);
+        setError('');
+        return;
+      }
+
+      // GENERAL COMP mode – smart pattern-based explanation
+      newSteps.push({ title: '📝 Input', desc: expr });
+      const scope = { Ans: Number(ans) || 0 };
+
+      // Detect trig functions
+      const trigPattern = /\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh)\s*\(/i;
+      if (trigPattern.test(expr)) {
+        const fn = expr.match(trigPattern)![1].toLowerCase();
+        newSteps.push({ title: '📐 Trigonometric Function', desc: `Detected: ${fn}()` });
+        try {
+          const innerMatch = expr.match(/\w+\(([^)]+)\)/);
+          if (innerMatch) {
+            const innerVal = math.evaluate(innerMatch[1], scope);
+            newSteps.push({ title: '🔁 Inner Value', desc: `${innerMatch[1]} = ${math.format(innerVal, {precision:10})}` });
+          }
+        } catch (_) {}
+      }
+
+      // Detect power / exponent
+      if (expr.includes('^')) {
+        const parts = expr.split('^');
+        newSteps.push({ title: '⬆️ Exponentiation', desc: `Base: ${parts[0].trim()}, Exponent: ${parts.slice(1).join('^').trim()}` });
+      }
+
+      // Detect log
+      if (/\b(log|log2|log10|ln)\s*\(/i.test(expr)) {
+        newSteps.push({ title: '📉 Logarithm', desc: 'log() is base-10, log2() is base-2, ln() is natural log (base e)' });
+      }
+
+      // Detect sqrt
+      if (/\bsqrt\s*\(/i.test(expr)) {
+        const match = expr.match(/sqrt\(([^)]+)\)/);
+        if (match) {
+          try {
+            const inner = math.evaluate(match[1], scope);
+            newSteps.push({ title: '√ Square Root', desc: `√(${match[1]}) → √${inner}` });
+          } catch (_) {}
+        }
+      }
+
+      // Detect factorial
+      if (expr.includes('!')) {
+        newSteps.push({ title: '❗ Factorial', desc: 'n! = n × (n-1) × ... × 2 × 1' });
+      }
+
+      // Detect percentage
+      if (expr.includes('%')) {
+        newSteps.push({ title: '💯 Percentage', desc: `${expr.replace('%', '')} / 100` });
+      }
+
       // Try simplification
       try {
         const simplified = math.simplify(expr).toString();
-        // Simple check to see if it actually simplified it visually
         if (simplified.replace(/\s/g, '') !== expr.replace(/\s/g, '')) {
-          newSteps.push({ title: 'Simplified Form', desc: simplified });
+          newSteps.push({ title: '✏️ Simplified', desc: simplified });
         }
-      } catch(e) {
-          // Ignore simplification errors
+      } catch (_) {}
+
+      // Final evaluation
+      const res = math.evaluate(expr, scope);
+      const formatted = typeof res === 'number'
+        ? math.format(res, { precision: 12 })
+        : math.format(res, { precision: 12 });
+      newSteps.push({ title: '✅ Final Result', desc: formatted });
+
+      // Extra: fraction approximation for non-integers
+      if (typeof res === 'number' && !Number.isInteger(res)) {
+        try {
+          const frac = math.fraction(res);
+          if ((frac as any).d <= 1000) {
+            newSteps.push({ title: '½ Fraction Form', desc: `≈ ${(frac as any).n}/${(frac as any).d}` });
+          }
+        } catch (_) {}
       }
 
-      // Evaluate
-      const res = math.evaluate(expr, { Ans: Number(ans) || 0 });
-      
-      if (typeof res === 'number' || typeof res === 'boolean' || math.isComplex(res)) {
-        newSteps.push({ title: 'Final Result', desc: res.toString() });
-      } else if (math.isMatrix(res) || Array.isArray(res)) {
-        newSteps.push({ title: 'Matrix/Array Result', desc: math.format(res) });
-      } else {
-        newSteps.push({ title: 'Evaluated', desc: res.toString() });
-      }
-      
       setSteps(newSteps);
       setError('');
     } catch (err: any) {
@@ -1410,7 +1588,7 @@ export default function App() {
             
             {/* STEPS TAB */}
             {activeTab === 'steps' && (
-              <div className="space-y-6 max-w-2xl mx-auto">
+              <div className="space-y-6 w-full h-full">
                 {error ? (
                   <div className="bg-red-950/30 border border-red-900/50 rounded-2xl p-6 flex gap-4 text-red-400 animate-in fade-in slide-in-from-bottom-4">
                     <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
@@ -1537,7 +1715,7 @@ export default function App() {
 
             {/* HISTORY TAB */}
             {activeTab === 'history' && (
-              <div className="max-w-3xl mx-auto h-full animate-in fade-in">
+              <div className="w-full h-full animate-in fade-in">
                  <div className="flex justify-between items-center mb-6 px-2">
                   <h3 className="text-xl font-semibold flex items-center gap-3 text-purple-400">
                     <History className="w-6 h-6" />
@@ -1607,7 +1785,7 @@ export default function App() {
 
             {/* GUIDE TAB */}
             {activeTab === 'guide' && (
-              <div className="max-w-3xl mx-auto h-full animate-in fade-in text-slate-300 space-y-6">
+              <div className="w-full h-full animate-in fade-in text-slate-300 space-y-6">
                 <div className="flex justify-between items-center mb-4 px-2">
                   <h3 className="text-xl font-semibold flex items-center gap-3 text-cyan-400">
                     <BookOpen className="w-6 h-6" />
