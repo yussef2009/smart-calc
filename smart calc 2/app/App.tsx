@@ -9,7 +9,7 @@ import {
   Activity, History, Check, X, 
   Terminal, BookOpen, Settings, AlertCircle, 
   Trash2, ChevronDown, Layers,
-  LogOut, Camera
+  LogOut, Camera, MoveRight
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -119,6 +119,11 @@ export default function App() {
   const [varValues, setVarValues] = useState<Record<string, string>>({});
   const [showVarPrompt, setShowVarPrompt] = useState(false);
   const [currentVarIndex, setCurrentVarIndex] = useState(0);
+
+  // Limit mode prompt state
+  const [showLimitPrompt, setShowLimitPrompt] = useState(false);
+  const [limitTarget, setLimitTarget] = useState('0');
+  const [limitExpr, setLimitExpr] = useState('');
   
   // New state for calculator modes
   const [calcMode, setCalcMode] = useState<CalcMode>('COMP');
@@ -775,145 +780,300 @@ export default function App() {
     }
   };
 
-  // Evaluate Limit numerically
-  const handleLimit = () => {
-    if (!expression) return;
-    
-    let targetStr: string | null = '0';
+  // Evaluate Limit — improved multi-scale convergence engine
+  const handleLimit = (targetValue?: string) => {
+    if (!expression && !limitExpr) return;
+
+    let targetStr: string | null = targetValue || '0';
     let mathExpr = expression;
-    if (!expression.includes(',')) {
-       targetStr = prompt('Calculate limit as variable approaches what value? (e.g. 0, Infinity, pi)');
-       if (targetStr === null) return;
+
+    // If we have a target value passed (e.g. from modal), use it
+    if (targetValue) {
+      targetStr = targetValue;
+    } 
+    // Otherwise, check if it's already in the expression via comma
+    else if (!expression.includes(',')) {
+      setLimitExpr(expression);
+      setShowLimitPrompt(true);
+      return;
     } else {
-       // If expression is "sin(x)/x, 0", parse it
-       const parts = expression.split(',');
-       mathExpr = parts[0];
-       targetStr = parts[1].trim();
+      const parts = expression.split(',');
+      mathExpr = parts[0].trim();
+      targetStr = parts[1].trim();
     }
-    
+
+    // Normalise ∞ aliases
+    const normTarget = targetStr.trim().toLowerCase()
+      .replace(/^inf(inity)?$/, 'Infinity')
+      .replace(/^-inf(inity)?$/, '-Infinity')
+      .replace(/^\+inf(inity)?$/, 'Infinity');
+
     let target: number;
     try {
-      target = Number(math.evaluate(targetStr));
+      target = Number(math.evaluate(normTarget));
     } catch {
-      target = parseFloat(targetStr);
+      target = parseFloat(normTarget);
     }
-    
+    if (isNaN(target) && normTarget !== 'Infinity' && normTarget !== '-Infinity') {
+      setResult('Error');
+      setError(`Cannot parse limit point: "${targetStr}"`);
+      setActiveTab('steps');
+      setIsSidebarOpen(true);
+      return;
+    }
+
     try {
       const compiled = math.compile(mathExpr);
-      // Try to find a variable name, default to 'x'
-      const targetVarMatch = mathExpr.match(/\b([a-zA-Z])\b/);
-      const targetVar = targetVarMatch ? targetVarMatch[1] : 'x';
-      
-      const getF = (val: number) => {
+
+      // Detect variable (prefer x, then first letter found)
+      const varMatch = mathExpr.match(/\b([a-zA-Z])\b/g) || [];
+      const reserved = new Set(['e', 'E', 'i', 'I']);
+      const targetVar = varMatch.find(v => !reserved.has(v)) ?? 'x';
+
+      const evalAt = (val: number): number => {
         try {
-          const res = compiled.evaluate({ [targetVar]: val, x: val, X: val, Ans: Number(ans) || 0 });
+          const res = compiled.evaluate({
+            [targetVar]: val, x: val, X: val,
+            Ans: Number(ans) || 0,
+          });
           if (math.typeOf(res) === 'Complex') {
-            if (Math.abs(res.im) > 1e-10) return NaN;
-            return res.re;
+            return Math.abs((res as any).im) > 1e-9 ? NaN : (res as any).re;
           }
-          return Number(res);
+          return typeof res === 'number' ? res : Number(res);
         } catch {
           return NaN;
         }
       };
-      
-      let resStr = '';
-      let isValid = false;
-      let explanation = '';
-      
+
+      const limitSteps: Step[] = [];
+      limitSteps.push({ title: '📐 Expression', desc: `f(${targetVar}) = ${mathExpr}` });
+      limitSteps.push({ title: '🎯 Limit Point', desc: `${targetVar} → ${normTarget}` });
+
+      /* ── SYMBOLIC SIMPLIFICATION ATTEMPT ─────────────────────────── */
+      try {
+        const simplified = math.simplify(mathExpr).toString();
+        if (simplified !== mathExpr) {
+          limitSteps.push({ title: '✏️ Symbolic Simplification', desc: `f(${targetVar}) = ${simplified}` });
+        }
+      } catch { /* ignore */ }
+
+      /* ── DIRECT SUBSTITUTION ──────────────────────────────────────── */
+      let directVal = NaN;
+      if (isFinite(target)) {
+        directVal = evalAt(target);
+        if (isFinite(directVal)) {
+          limitSteps.push({ title: '✅ Direct Substitution', desc: `f(${target}) = ${directVal}` });
+          const resStr = formatLimitResult(directVal);
+          limitSteps.push({ title: '✅ Limit Result', desc: `lim = ${resStr}` });
+          finishLimit(resStr, limitSteps, mathExpr, targetVar, normTarget);
+          return;
+        }
+        limitSteps.push({ title: '⚠️ Direct Substitution', desc: `f(${target}) is undefined — checking indeterminate form…` });
+      }
+
+      /* ── MULTI-SCALE CONVERGENCE (finite target) ─────────────────── */
+      if (isFinite(target)) {
+        const epsilons = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10];
+        const leftVals: number[] = [];
+        const rightVals: number[] = [];
+
+        for (const h of epsilons) {
+          leftVals.push(evalAt(target - h));
+          rightVals.push(evalAt(target + h));
+        }
+
+        const validLeft = leftVals.filter(v => !isNaN(v));
+        const validRight = rightVals.filter(v => !isNaN(v));
+
+        // Oscillation check
+        const oscillates = (arr: number[]) => {
+          if (arr.length < 4) return false;
+          let alternations = 0;
+          for (let i = 1; i < arr.length; i++) {
+            if (isFinite(arr[i]) && isFinite(arr[i-1]) && Math.sign(arr[i]) !== Math.sign(arr[i-1])) alternations++;
+          }
+          return alternations > arr.length / 2;
+        };
+
+        // Divergence check
+        const diverges = (arr: number[]) => {
+          if (arr.length < 3) return false;
+          const last = arr.filter(isFinite);
+          if (last.length < 3) return arr.some(v => !isFinite(v));
+          // If values are extremely large or growing rapidly
+          const isLarge = Math.abs(last[last.length - 1]) > 1e10;
+          const isGrowing = Math.abs(last[last.length - 1]) > Math.abs(last[0]) * 1.5;
+          return isLarge || (isGrowing && Math.abs(last[last.length - 1]) > 1e5);
+        };
+
+        if (diverges(validLeft) && diverges(validRight)) {
+          const lSign = Math.sign(validLeft[validLeft.length - 1] || 0);
+          const rSign = Math.sign(validRight[validRight.length - 1] || 0);
+          const resStr = (lSign === rSign) ? (lSign > 0 ? '+∞' : '-∞') : 'Undefined (diverges to opposite signs)';
+          limitSteps.push({ title: '📈 Divergence Detected', desc: `Function approaches ${resStr} near ${target}` });
+          finishLimit(resStr, limitSteps, mathExpr, targetVar, normTarget);
+          return;
+        }
+
+        if (oscillates(validLeft) || oscillates(validRight)) {
+          limitSteps.push({ title: '🔄 Oscillation Detected', desc: 'Function does not settle on a single value (e.g. sin(1/x))' });
+          finishLimit('Undefined', limitSteps, mathExpr, targetVar, normTarget);
+          return;
+        }
+
+        // One-sided limit checks
+        const lL = pickStableValue(validLeft);
+        const lR = pickStableValue(validRight);
+
+        const leftFinite = isFinite(lL);
+        const rightFinite = isFinite(lR);
+
+        if (leftFinite) limitSteps.push({ title: '📊 Left-hand Limit (x→c⁻)', desc: lL.toPrecision(8) });
+        if (rightFinite) limitSteps.push({ title: '📊 Right-hand Limit (x→c⁺)', desc: lR.toPrecision(8) });
+
+        if (leftFinite && rightFinite) {
+          const diff = Math.abs(lL - lR);
+          if (diff < 1e-4) {
+            const avg = (lL + lR) / 2;
+            const resStr = formatLimitResult(avg);
+            const known = identifyKnownConstant(avg);
+            if (known) limitSteps.push({ title: '💡 Recognised Constant', desc: known });
+            finishLimit(resStr, limitSteps, mathExpr, targetVar, normTarget);
+            return;
+          } else {
+            limitSteps.push({ title: '❌ Jump Discontinuity', desc: `Left-hand and right-hand limits differ: ${lL.toFixed(4)} ≠ ${lR.toFixed(4)}` });
+            finishLimit('Undefined', limitSteps, mathExpr, targetVar, normTarget);
+            return;
+          }
+        } else if (leftFinite || rightFinite) {
+          const val = leftFinite ? lL : lR;
+          const side = leftFinite ? '⁻' : '⁺';
+          const resStr = formatLimitResult(val);
+          limitSteps.push({ title: '⚡ One-Sided Limit', desc: `Only the ${leftFinite ? 'left' : 'right'}-hand limit is defined.` });
+          finishLimit(`lim${side} = ${resStr}`, limitSteps, mathExpr, targetVar, normTarget);
+          return;
+        }
+
+        finishLimit('Undefined', limitSteps, mathExpr, targetVar, normTarget);
+      }
+
+      /* ── LIMIT AT ±∞ ─────────────────────────────────────────────── */
       if (!isFinite(target)) {
         const sign = target > 0 ? 1 : -1;
-        const v1 = getF(sign * 1e5);
-        const v2 = getF(sign * 1e6);
-        const v3 = getF(sign * 1e7);
-        
-        if (isNaN(v3)) {
-          resStr = 'Undefined';
-          isValid = true;
-          explanation = `Function is undefined at large values.`;
-        } else if (Math.abs(v3) > 1e10) {
-           resStr = v3 > 0 || v2 > v1 ? '+∞' : '-∞';
-           isValid = true;
-           explanation = `Evaluated at large values: f(1e6) ≈ ${v2.toExponential(2)}, f(1e7) ≈ ${v3.toExponential(2)}\nDiverges to ${resStr}`;
-        } else if (Math.abs(v3 - v2) < 1e-3) {
-           resStr = Number(v3.toFixed(6)).toString();
-           isValid = true;
-           explanation = `Evaluated at large values: f(1e6) ≈ ${v2.toFixed(6)}, f(1e7) ≈ ${v3.toFixed(6)}\nConverges to ${resStr}`;
-        } else {
-           resStr = 'Undefined (oscillates)';
-           isValid = true;
-           explanation = `Function does not converge at ${target > 0 ? '+∞' : '-∞'}.`;
+        const probes = [1e2, 1e4, 1e6, 1e8, 1e10, 1e12].map(v => sign * v);
+        const vals = probes.map(evalAt).filter(v => !isNaN(v));
+
+        if (vals.length < 3) {
+          finishLimit('Undefined', limitSteps, mathExpr, targetVar, normTarget);
+          return;
         }
-      } else {
-        const h = 1e-7;
-        const left = getF(target - h);
-        const right = getF(target + h);
+
+        limitSteps.push({ title: '🔭 Probing End Behavior', desc: `Checking values as ${targetVar} grows large...` });
+
+        const lastVal = vals[vals.length - 1];
+        const firstVal = vals[0];
+
+        // Check for divergence to infinity (even slow ones like log)
+        const isDivergent = !isFinite(lastVal) || Math.abs(lastVal) > 1e15;
+        // Growth threshold lowered to 10 to catch log(x) which reaches 27 at 1e12
+        const isGrowing = Math.abs(lastVal) > Math.abs(firstVal) && Math.abs(lastVal) > 10;
         
-        if (isNaN(left) || isNaN(right)) {
-           // Maybe one-sided limit exists
-           if (!isNaN(right)) {
-             resStr = Number(right.toFixed(6)).toString();
-             isValid = true;
-             explanation = `Left side undefined.\nRight side limit: ${right.toFixed(6)}`;
-           } else if (!isNaN(left)) {
-             resStr = Number(left.toFixed(6)).toString();
-             isValid = true;
-             explanation = `Right side undefined.\nLeft side limit: ${left.toFixed(6)}`;
-           } else {
-             resStr = 'Undefined';
-             isValid = true;
-             explanation = `Function undefined near ${target}.`;
-           }
-        } else if (Math.abs(left) > 1e7 && Math.abs(right) > 1e7) {
-           if (left * right > 0) {
-              resStr = left > 0 ? '+∞' : '-∞';
-              isValid = true;
-           } else {
-              resStr = 'Undefined (diverges to opposite signs)';
-              isValid = true;
-           }
-           explanation = `Approaching from left: ${left > 0 ? '+∞' : '-∞'}\nApproaching from right: ${right > 0 ? '+∞' : '-∞'}`;
-        } else {
-           const diff = Math.abs(left - right);
-           if (diff < 1e-2) {
-             const avg = (left + right) / 2;
-             resStr = Number(avg.toFixed(6)).toString();
-             isValid = true;
-             explanation = `Approaching from left: ${left.toFixed(6)}\nApproaching from right: ${right.toFixed(6)}\nResult: ${resStr}`;
-           } else {
-             resStr = 'Undefined (limits do not match)';
-             isValid = true;
-             explanation = `Approaching from left: ${left.toFixed(6)}\nApproaching from right: ${right.toFixed(6)}\nLimits are unequal.`;
-           }
+        // Simple monotonic check for slow growth
+        let monotonic = true;
+        for (let i = 1; i < vals.length; i++) {
+          if (Math.abs(vals[i]) < Math.abs(vals[i-1]) - 1e-12) { monotonic = false; break; }
         }
+
+        if (isDivergent || (isGrowing && monotonic)) {
+          const resStr = lastVal >= 0 ? '+∞' : '-∞';
+          limitSteps.push({ title: '📈 Divergence at Infinity', desc: `Values are ${monotonic ? 'monotonically ' : ''}growing towards ${resStr}` });
+          finishLimit(resStr, limitSteps, mathExpr, targetVar, normTarget);
+          return;
+        }
+
+        // Check for convergence
+        const lastThree = vals.slice(-3);
+        const spread = Math.max(...lastThree) - Math.min(...lastThree);
+        if (spread < 1e-5) {
+          const avg = lastThree.reduce((a, b) => a + b, 0) / 3;
+          const resStr = formatLimitResult(avg);
+          const known = identifyKnownConstant(avg);
+          if (known) limitSteps.push({ title: '💡 Recognised Constant', desc: known });
+          finishLimit(resStr, limitSteps, mathExpr, targetVar, normTarget);
+          return;
+        }
+
+        finishLimit('Undefined (does not converge)', limitSteps, mathExpr, targetVar, normTarget);
       }
-      
-      if (isValid) {
-        setResult(`lim = ${resStr}`);
-        generateExplanation(`Calculated Limit of ${mathExpr} as ${targetVar} -> ${targetStr}\n${explanation}`, 'text');
-        
-        // Add to history
-        const newHistoryItem = {
-          id: Math.random().toString(36).substring(2, 9),
-          expression: `lim(${targetVar}->${targetStr}) ${mathExpr}`,
-          result: resStr,
-          timestamp: Date.now()
-        };
-        setHistory(prev => [newHistoryItem, ...prev]);
-        if (user) {
-          saveHistoryToSupabase(user.uid, newHistoryItem);
-        }
-      } else {
-        setResult('Error');
-        setError('Limit could not be evaluated.');
-      }
-      setActiveTab('steps');
-      setIsSidebarOpen(true);
-    } catch(err: any) {
+    } catch (err: any) {
       setResult('Error');
       setError(`Cannot evaluate limit: ${analyzeError(err)}`);
       setActiveTab('steps');
       setIsSidebarOpen(true);
+    }
+
+    /* ── HELPERS ─────────────────────────────────────────────────── */
+    function formatLimitResult(val: number): string {
+      if (!isFinite(val)) return val > 0 ? '+∞' : '-∞';
+      
+      const absVal = Math.abs(val);
+      if (absVal < 1e-11) return '0';
+      
+      // Round to nearest integer if extremely close
+      const rounded = Math.round(val);
+      if (Math.abs(val - rounded) < 1e-7) return String(rounded);
+      
+      // Check for common fractions like 0.5, 0.25, etc.
+      const halves = Math.round(val * 2) / 2;
+      if (Math.abs(val - halves) < 1e-3) return String(halves);
+      
+      const quarters = Math.round(val * 4) / 4;
+      if (Math.abs(val - quarters) < 1e-3) return String(quarters);
+
+      // Clean up precision jitter for everything else
+      return Number(val.toPrecision(10)).toString();
+    }
+
+    function identifyKnownConstant(val: number): string | null {
+      const checks: [number, string][] = [
+        [Math.PI, 'π'], [Math.E, 'e'], [Math.SQRT2, '√2'], [Math.LN2, 'ln(2)'], [Math.PI/2, 'π/2']
+      ];
+      for (const [c, name] of checks) {
+        if (Math.abs(val - c) < 1e-7) return `Result is approximately ${name}`;
+      }
+      return null;
+    }
+
+    function finishLimit(resStr: string, steps: Step[], expr: string, variable: string, pointStr: string) {
+      setResult(`lim = ${resStr}`);
+      setSteps(steps);
+      setError('');
+      const newHistoryItem = {
+        id: Math.random().toString(36).substring(2, 9),
+        expression: `lim(${variable}→${pointStr}) ${expr}`,
+        result: resStr,
+        timestamp: Date.now(),
+      };
+      setHistory(prev => [newHistoryItem, ...prev]);
+      if (user) saveHistoryToSupabase(user.uid, newHistoryItem);
+      setActiveTab('steps');
+      setIsSidebarOpen(true);
+    }
+
+    // Pick the most stable value from the epsilon probes
+    // (Avoids values that collapsed to 0 or NaN due to precision limits)
+    function pickStableValue(vals: number[]): number {
+      const valid = vals.filter(v => isFinite(v) && Math.abs(v) > 1e-15);
+      if (valid.length === 0) return vals[vals.length - 1]; // fallback
+      
+      // If the values are converging, the later ones are better, 
+      // but only until they start losing precision.
+      // We look for the last value that hasn't suddenly jumped to 0 relative to its neighbor.
+      for (let i = valid.length - 1; i > 0; i--) {
+        const ratio = Math.abs(valid[i] / valid[i-1]);
+        if (ratio > 0.001 && ratio < 1000) return valid[i];
+      }
+      return valid[0];
     }
   };
 
@@ -1036,9 +1196,16 @@ export default function App() {
         r[2][3] = { label: 'Binom', val: 'binomPD(' };
       },
       'LIMIT': (r) => {
-        r[0][0] = { label: 'EVAL', action: handleLimit, shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' };
+        r[0][0] = { label: 'EVAL', action: () => handleLimit(), shiftLabel: 'SOLVE', shiftAction: handleSolve, alphaLabel: '=', alphaVal: '=' };
         r[0][1] = { label: 'lim→', action: () => handleAppend(', ') };
         r[0][2] = { label: '∞', val: 'Infinity' };
+        r[0][3] = { label: 'x→0', action: () => handleLimit('0') };
+        r[0][4] = { label: 'x→∞', action: () => handleLimit('Infinity') };
+        
+        r[1][0] = { label: 'x', val: 'x' };
+        r[1][1] = { label: '0', val: '0' };
+        r[1][2] = { label: 'π', val: 'pi' };
+        r[1][3] = { label: 'e', val: 'e' };
       },
       'ALGEBRA': (r) => {
         r[0][1] = { label: 'Simplify', val: 'simplify(' };
@@ -1878,6 +2045,21 @@ export default function App() {
                       </details>
 
                       <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
+                        <summary className="font-bold text-cyan-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">LIMIT Mode</summary>
+                        <div className="p-4 pt-0 text-slate-300 text-sm space-y-2">
+                          <p>Specifically designed for evaluating limits of functions numerically. It uses a multi-scale convergence engine to handle indeterminate forms.</p>
+                          <p><strong>Usage:</strong></p>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>Enter your expression (e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">sin(x)/x</code>)</li>
+                            <li>Press <span className="text-blue-400 font-bold">EVAL</span> or Enter.</li>
+                            <li>A prompt will appear asking for the limit point (e.g., <code className="bg-slate-800 px-1 rounded text-cyan-300">0</code> or <code className="bg-slate-800 px-1 rounded text-cyan-300">Infinity</code>).</li>
+                            <li>Alternatively, use the comma syntax: <code className="bg-slate-800 px-1 rounded text-cyan-300">sin(x)/x, 0</code>.</li>
+                          </ul>
+                          <p className="text-xs text-slate-400 mt-2">Supports one-sided limits, oscillation detection, and divergence to ±∞.</p>
+                        </div>
+                      </details>
+
+                      <details className="bg-slate-800/30 rounded-xl border border-white/5 group">
                         <summary className="font-bold text-purple-400 p-4 cursor-pointer hover:bg-slate-800/50 rounded-xl">CMPLX (Complex)</summary>
                         <div className="p-4 pt-0 text-slate-300 text-sm">
                           Work with complex numbers. Press the <span className="text-yellow-200">i</span> button to enter the imaginary unit. Use <span className="text-yellow-200">Arg</span> to find the argument of a complex number. Example: <code className="bg-slate-800 px-1 rounded text-cyan-300">2 + 3i</code>.
@@ -2073,6 +2255,91 @@ export default function App() {
               >
                 <Check className="w-5 h-5" />
                 {currentVarIndex < detectedVars.length - 1 ? 'Next' : 'Calculate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIMIT PROMPT MODAL */}
+      {showLimitPrompt && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[120] backdrop-blur-md">
+          <div className="bg-[#131A2A] border-2 border-cyan-500/50 rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="text-2xl font-bold text-cyan-400 mb-6 flex items-center gap-3">
+              <MoveRight className="w-6 h-6" />
+              Evaluate Limit
+            </h2>
+            
+            <div className="mb-6">
+              <div className="bg-slate-800/30 p-4 rounded-2xl mb-5 border border-slate-700/50">
+                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2">Function Expression</p>
+                <div className="font-mono text-xl text-white truncate bg-black/20 p-2 rounded-lg border border-white/5">{limitExpr}</div>
+              </div>
+
+              <div className="bg-[#1A2235] border border-slate-800/80 rounded-2xl p-5 mb-5 shadow-inner">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                  Approach point (c):
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={limitTarget}
+                  onChange={(e) => setLimitTarget(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setShowLimitPrompt(false);
+                      handleLimit(limitTarget);
+                    }
+                  }}
+                  className="w-full bg-[#0f1523] border border-slate-700 rounded-xl px-5 py-4 text-white font-mono text-2xl placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                  placeholder="0, Infinity, pi..."
+                />
+              </div>
+              
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Quick Presets</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: '0', val: '0' },
+                  { label: '∞', val: 'Infinity' },
+                  { label: '-∞', val: '-Infinity' },
+                  { label: 'π', val: 'pi' },
+                  { label: '1', val: '1' },
+                  { label: 'e', val: 'e' }
+                ].map((p) => (
+                  <button 
+                    key={p.val}
+                    onClick={() => setLimitTarget(p.val)}
+                    className={cn(
+                      "px-3 py-2.5 rounded-xl text-sm font-black transition-all border flex items-center justify-center gap-2",
+                      limitTarget === p.val 
+                        ? "bg-cyan-500/20 text-cyan-400 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.2)]" 
+                        : "bg-slate-800/50 text-slate-400 border-slate-700 hover:border-slate-500 hover:bg-slate-800 hover:text-slate-200"
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowLimitPrompt(false);
+                }}
+                className="flex-1 px-4 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl font-bold transition-all border border-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowLimitPrompt(false);
+                  handleLimit(limitTarget);
+                }}
+                className="flex-1 px-4 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-2xl font-black transition-all shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                CALCULATE
               </button>
             </div>
           </div>
